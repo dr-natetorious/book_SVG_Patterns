@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Property Graph Architecture Diagram</title>
+    <style>
+        :root {
+            /* Color System - WCAG AA Compliant */
+            --primary-blue: #1e40af;
+            --primary-blue-light: #3b82f6;
+            --secondary-green: #059669;
+            --secondary-green-light: #10b981;
+            --accent-orange: #ea580c;
+            --accent-purple: #7c3aed;
+            --neutral-gray: #6b7280;
+            --neutral-light: #f3f4f6;
+            --neutral-dark: #1f2937;
+            --background: #ffffff;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+            --border-color: #e5e7eb;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --focus-ring: #3b82f6;
+            
+            /* Spacing System */
+            --spacing-xs: 4px;
+            --spacing-sm: 8px;
+            --spacing-md: 16px;
+            --spacing-lg: 24px;
+            --spacing-xl: 32px;
+            
+            /* Typography */
+            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            --font-size-xs: 10px;
+            --font-size-sm: 12px;
+            --font-size-base: 14px;
+            --font-size-lg: 16px;
+            --font-size-xl: 18px;
+        }
+        
+        /* Dark theme support */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --background: #111827;
+                --text-primary: #f9fafb;
+                --text-secondary: #9ca3af;
+                --neutral-light: #374151;
+                --neutral-dark: #f3f4f6;
+                --border-color: #4b5563;
+                --shadow-color: rgba(0, 0, 0, 0.3);
+            }
+        }
+        
+        /* High contrast mode support */
+        @media (forced-colors: active) {
+            :root {
+                --primary-blue: ButtonText;
+                --secondary-green: ButtonText;
+                --accent-orange: ButtonText;
+                --background: ButtonFace;
+                --text-primary: ButtonText;
+                --border-color: ButtonText;
+            }
+        }
+        
+        /* Reduced motion support */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+        
+        body {
+            margin: 0;
+            padding: var(--spacing-md);
+            font-family: var(--font-family);
+            background-color: var(--background);
+            color: var(--text-primary);
+            line-height: 1.5;
+        }
+        
+        .diagram-container {
+            max-width: 100%;
+            background: var(--background);
+            border-radius: 8px;
+            box-shadow: 0 4px 6px var(--shadow-color);
+            overflow: hidden;
+        }
+        
+        .diagram-header {
+            padding: var(--spacing-lg);
+            background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-light));
+            color: white;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .diagram-title {
+            margin: 0;
+            font-size: var(--font-size-xl);
+            font-weight: 600;
+        }
+        
+        .diagram-subtitle {
+            margin: var(--spacing-xs) 0 0 0;
+            font-size: var(--font-size-sm);
+            opacity: 0.9;
+        }
+        
+        .controls {
+            padding: var(--spacing-md);
+            background: var(--neutral-light);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            gap: var(--spacing-sm);
+            flex-wrap: wrap;
+        }
+        
+        .control-button {
+            padding: var(--spacing-sm) var(--spacing-md);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--background);
+            color: var(--text-primary);
+            font-size: var(--font-size-sm);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+        
+        .control-button:hover {
+            background: var(--primary-blue);
+            color: white;
+            border-color: var(--primary-blue);
+            transform: translateY(-1px);
+        }
+        
+        .control-button:focus {
+            outline: 2px solid var(--focus-ring);
+            outline-offset: 2px;
+        }
+        
+        .control-button.active {
+            background: var(--primary-blue);
+            color: white;
+            border-color: var(--primary-blue);
+        }
+        
+        .svg-container {
+            position: relative;
+            width: 100%;
+            height: 600px;
+            overflow: hidden;
+        }
+        
+        .architecture-svg {
+            width: 100%;
+            height: 100%;
+            background: var(--background);
+        }
+        
+        /* Node Styles */
+        .node {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .node:hover {
+            transform: scale(1.05);
+        }
+        
+        .node:focus {
+            outline: 2px solid var(--focus-ring);
+            outline-offset: 2px;
+        }
+        
+        .node.selected {
+            filter: drop-shadow(0 0 8px var(--primary-blue));
+        }
+        
+        .node-rect {
+            fill: var(--background);
+            stroke: var(--border-color);
+            stroke-width: 2;
+            rx: 8;
+            filter: drop-shadow(0 2px 4px var(--shadow-color));
+        }
+        
+        .node.data-source .node-rect { fill: var(--primary-blue); stroke: var(--primary-blue); }
+        .node.processing .node-rect { fill: var(--secondary-green); stroke: var(--secondary-green); }
+        .node.storage .node-rect { fill: var(--accent-orange); stroke: var(--accent-orange); }
+        .node.application .node-rect { fill: var(--accent-purple); stroke: var(--accent-purple); }
+        
+        .node-text {
+            fill: white;
+            font-size: var(--font-size-sm);
+            font-weight: 500;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+        }
+        
+        .node-label {
+            fill: var(--text-primary);
+            font-size: var(--font-size-xs);
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+        }
+        
+        /* Edge Styles */
+        .edge {
+            transition: all 0.3s ease;
+        }
+        
+        .edge-line {
+            fill: none;
+            stroke: var(--neutral-gray);
+            stroke-width: 2;
+            marker-end: url(#arrowhead);
+        }
+        
+        .edge.highlighted .edge-line {
+            stroke: var(--primary-blue);
+            stroke-width: 3;
+        }
+        
+        .edge-label {
+            fill: var(--text-secondary);
+            font-size: var(--font-size-xs);
+            text-anchor: middle;
+            dominant-baseline: middle;
+            background: var(--background);
+        }
+        
+        /* Property Panel */
+        .property-panel {
+            position: absolute;
+            top: var(--spacing-md);
+            right: var(--spacing-md);
+            width: 280px;
+            background: var(--background);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px var(--shadow-color);
+            padding: var(--spacing-md);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+        
+        .property-panel.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .property-title {
+            margin: 0 0 var(--spacing-md) 0;
+            font-size: var(--font-size-lg);
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .property-item {
+            margin-bottom: var(--spacing-sm);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .property-label {
+            font-size: var(--font-size-sm);
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        .property-value {
+            font-size: var(--font-size-sm);
+            color: var(--text-primary);
+            font-weight: 400;
+        }
+        
+        /* Legend */
+        .legend {
+            padding: var(--spacing-md);
+            background: var(--neutral-light);
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .legend-title {
+            margin: 0 0 var(--spacing-md) 0;
+            font-size: var(--font-size-base);
+            font-weight: 600;
+        }
+        
+        .legend-items {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: var(--spacing-sm);
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+        
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+        
+        .legend-text {
+            font-size: var(--font-size-sm);
+            color: var(--text-primary);
+        }
+        
+        /* Tooltip */
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: var(--spacing-sm);
+            border-radius: 4px;
+            font-size: var(--font-size-xs);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            z-index: 1000;
+        }
+        
+        .tooltip.visible {
+            opacity: 1;
+        }
+        
+        /* Accessibility */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .property-panel {
+                position: static;
+                width: 100%;
+                margin-top: var(--spacing-md);
+                opacity: 1;
+                visibility: visible;
+            }
+            
+            .controls {
+                justify-content: center;
+            }
+            
+            .legend-items {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="diagram-container">
+        <div class="diagram-header">
+            <h1 class="diagram-title">Property Graph Data Platform Architecture</h1>
+            <p class="diagram-subtitle">Interactive system architecture with real-time data flows and relationship mapping</p>
+        </div>
+        
+        <div class="controls">
+            <button class="control-button active" onclick="showAllNodes()" tabindex="0">Show All</button>
+            <button class="control-button" onclick="filterByType('data-source')" tabindex="0">Data Sources</button>
+            <button class="control-button" onclick="filterByType('processing')" tabindex="0">Processing</button>
+            <button class="control-button" onclick="filterByType('storage')" tabindex="0">Storage</button>
+            <button class="control-button" onclick="filterByType('application')" tabindex="0">Applications</button>
+            <button class="control-button" onclick="highlightDataFlow()" tabindex="0">Data Flow</button>
+            <button class="control-button" onclick="resetView()" tabindex="0">Reset</button>
+        </div>
+        
+        <div class="svg-container">
+            <svg class="architecture-svg" viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="diagram-title diagram-desc">
+                <title id="diagram-title">Property Graph Architecture Diagram</title>
+                <desc id="diagram-desc">An interactive architecture diagram showing data sources, processing engines, storage systems, and applications connected through a property graph database</desc>
+                
+                <!-- Definitions for reusable elements -->
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="var(--neutral-gray)" />
+                    </marker>
+                    
+                    <filter id="glow">
+                        <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                        <feMerge> 
+                            <feMergeNode in="coloredBlur"/>
+                            <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                    </filter>
+                </defs>
+                
+                <!-- Background grid -->
+                <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="var(--border-color)" stroke-width="0.5" opacity="0.3"/>
+                </pattern>
+                <rect width="100%" height="100%" fill="url(#grid)" />
+                
+                <!-- Edges (connections between nodes) -->
+                <g class="edges" role="group" aria-label="Data flow connections">
+                    <!-- Data Sources to Processing -->
+                    <g class="edge" data-from="api-gateway" data-to="kafka">
+                        <path class="edge-line" d="M 150 120 Q 200 120 250 150" />
+                        <text class="edge-label" x="200" y="130">HTTP/REST</text>
+                    </g>
+                    
+                    <g class="edge" data-from="databases" data-to="kafka">
+                        <path class="edge-line" d="M 150 200 L 250 180" />
+                        <text class="edge-label" x="200" y="185">CDC</text>
+                    </g>
+                    
+                    <g class="edge" data-from="file-systems" data-to="spark">
+                        <path class="edge-line" d="M 150 280 Q 200 280 250 250" />
+                        <text class="edge-label" x="200" y="270">Batch</text>
+                    </g>
+                    
+                    <!-- Processing to Storage -->
+                    <g class="edge" data-from="kafka" data-to="neo4j">
+                        <path class="edge-line" d="M 350 160 Q 450 160 550 200" />
+                        <text class="edge-label" x="450" y="175">Real-time</text>
+                    </g>
+                    
+                    <g class="edge" data-from="spark" data-to="neo4j">
+                        <path class="edge-line" d="M 350 240 Q 450 240 550 220" />
+                        <text class="edge-label" x="450" y="235">Bulk Load</text>
+                    </g>
+                    
+                    <g class="edge" data-from="airflow" data-to="elasticsearch">
+                        <path class="edge-line" d="M 350 320 Q 450 320 550 280" />
+                        <text class="edge-label" x="450" y="305">ETL</text>
+                    </g>
+                    
+                    <!-- Storage to Applications -->
+                    <g class="edge" data-from="neo4j" data-to="analytics-app">
+                        <path class="edge-line" d="M 650 210 Q 750 210 850 160" />
+                        <text class="edge-label" x="750" y="180">Cypher</text>
+                    </g>
+                    
+                    <g class="edge" data-from="elasticsearch" data-to="search-app">
+                        <path class="edge-line" d="M 650 270 Q 750 270 850 240" />
+                        <text class="edge-label" x="750" y="260">Query DSL</text>
+                    </g>
+                    
+                    <g class="edge" data-from="neo4j" data-to="recommendation">
+                        <path class="edge-line" d="M 650 230 Q 750 280 850 320" />
+                        <text class="edge-label" x="750" y="280">Graph ML</text>
+                    </g>
+                    
+                    <!-- Cross-system connections -->
+                    <g class="edge" data-from="analytics-app" data-to="visualization">
+                        <path class="edge-line" d="M 950 160 Q 1000 160 1050 200" />
+                        <text class="edge-label" x="1000" y="175">API</text>
+                    </g>
+                </g>
+                
+                <!-- Nodes (system components) -->
+                <g class="nodes" role="group" aria-label="System components">
+                    <!-- Data Sources Layer -->
+                    <g class="node data-source" data-id="api-gateway" tabindex="0" role="button" aria-label="API Gateway data source">
+                        <rect class="node-rect" x="50" y="100" width="100" height="40" />
+                        <text class="node-text" x="100" y="120">API Gateway</text>
+                        <text class="node-label" x="100" y="155">REST APIs</text>
+                    </g>
+                    
+                    <g class="node data-source" data-id="databases" tabindex="0" role="button" aria-label="Traditional databases data source">
+                        <rect class="node-rect" x="50" y="180" width="100" height="40" />
+                        <text class="node-text" x="100" y="200">Databases</text>
+                        <text class="node-label" x="100" y="235">RDBMS/NoSQL</text>
+                    </g>
+                    
+                    <g class="node data-source" data-id="file-systems" tabindex="0" role="button" aria-label="File systems data source">
+                        <rect class="node-rect" x="50" y="260" width="100" height="40" />
+                        <text class="node-text" x="100" y="280">File Systems</text>
+                        <text class="node-label" x="100" y="315">CSV/JSON/Parquet</text>
+                    </g>
+                    
+                    <!-- Processing Layer -->
+                    <g class="node processing" data-id="kafka" tabindex="0" role="button" aria-label="Apache Kafka stream processing">
+                        <rect class="node-rect" x="250" y="140" width="100" height="40" />
+                        <text class="node-text" x="300" y="160">Apache Kafka</text>
+                        <text class="node-label" x="300" y="195">Stream Processing</text>
+                    </g>
+                    
+                    <g class="node processing" data-id="spark" tabindex="0" role="button" aria-label="Apache Spark batch processing">
+                        <rect class="node-rect" x="250" y="220" width="100" height="40" />
+                        <text class="node-text" x="300" y="240">Apache Spark</text>
+                        <text class="node-label" x="300" y="275">Batch Processing</text>
+                    </g>
+                    
+                    <g class="node processing" data-id="airflow" tabindex="0" role="button" aria-label="Apache Airflow workflow orchestration">
+                        <rect class="node-rect" x="250" y="300" width="100" height="40" />
+                        <text class="node-text" x="300" y="320">Apache Airflow</text>
+                        <text class="node-label" x="300" y="355">Orchestration</text>
+                    </g>
+                    
+                    <!-- Storage Layer -->
+                    <g class="node storage" data-id="neo4j" tabindex="0" role="button" aria-label="Neo4j graph database">
+                        <rect class="node-rect" x="550" y="190" width="100" height="50" />
+                        <text class="node-text" x="600" y="210">Neo4j</text>
+                        <text class="node-text" x="600" y="225">Graph DB</text>
+                        <text class="node-label" x="600" y="260">Property Graph</text>
+                    </g>
+                    
+                    <g class="node storage" data-id="elasticsearch" tabindex="0" role="button" aria-label="Elasticsearch search engine">
+                        <rect class="node-rect" x="550" y="260" width="100" height="40" />
+                        <text class="node-text" x="600" y="280">Elasticsearch</text>
+                        <text class="node-label" x="600" y="315">Search Index</text>
+                    </g>
+                    
+                    <!-- Application Layer -->
+                    <g class="node application" data-id="analytics-app" tabindex="0" role="button" aria-label="Graph analytics application">
+                        <rect class="node-rect" x="850" y="140" width="100" height="40" />
+                        <text class="node-text" x="900" y="160">Graph Analytics</text>
+                        <text class="node-label" x="900" y="195">Pattern Detection</text>
+                    </g>
+                    
+                    <g class="node application" data-id="search-app" tabindex="0" role="button" aria-label="Search application">
+                        <rect class="node-rect" x="850" y="220" width="100" height="40" />
+                        <text class="node-text" x="900" y="240">Search App</text>
+                        <text class="node-label" x="900" y="275">Full-text Search</text>
+                    </g>
+                    
+                    <g class="node application" data-id="recommendation" tabindex="0" role="button" aria-label="Recommendation engine">
+                        <rect class="node-rect" x="850" y="300" width="100" height="40" />
+                        <text class="node-text" x="900" y="320">Recommendation</text>
+                        <text class="node-label" x="900" y="355">ML Engine</text>
+                    </g>
+                    
+                    <!-- Visualization Layer -->
+                    <g class="node application" data-id="visualization" tabindex="0" role="button" aria-label="Data visualization dashboard">
+                        <rect class="node-rect" x="1050" y="180" width="100" height="50" />
+                        <text class="node-text" x="1100" y="200">Dashboard</text>
+                        <text class="node-text" x="1100" y="215">Visualization</text>
+                        <text class="node-label" x="1100" y="250">Interactive UI</text>
+                    </g>
+                </g>
+                
+                <!-- Layer labels -->
+                <g class="layer-labels" role="group" aria-label="Architecture layers">
+                    <text x="25" y="200" class="node-label" transform="rotate(-90 25 200)" text-anchor="middle">Data Sources</text>
+                    <text x="225" y="240" class="node-label" transform="rotate(-90 225 240)" text-anchor="middle">Processing</text>
+                    <text x="525" y="240" class="node-label" transform="rotate(-90 525 240)" text-anchor="middle">Storage</text>
+                    <text x="825" y="240" class="node-label" transform="rotate(-90 825 240)" text-anchor="middle">Applications</text>
+                    <text x="1025" y="210" class="node-label" transform="rotate(-90 1025 210)" text-anchor="middle">Visualization</text>
+                </g>
+            </svg>
+            
+            <!-- Property Panel -->
+            <div class="property-panel" id="propertyPanel" role="complementary" aria-label="Component details">
+                <h3 class="property-title" id="propertyTitle">Select a component</h3>
+                <div id="propertyContent">
+                    <p>Click on any component to view its properties and relationships.</p>
+                </div>
+            </div>
+            
+            <!-- Tooltip -->
+            <div class="tooltip" id="tooltip" role="tooltip"></div>
+        </div>
+        
+        <!-- Legend -->
+        <div class="legend">
+            <h3 class="legend-title">Component Types</h3>
+            <div class="legend-items">
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: var(--primary-blue);"></div>
+                    <span class="legend-text">Data Sources</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: var(--secondary-green);"></div>
+                    <span class="legend-text">Processing Engines</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: var(--accent-orange);"></div>
+                    <span class="legend-text">Storage Systems</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: var(--accent-purple);"></div>
+                    <span class="legend-text">Applications</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Hidden data table for accessibility -->
+    <table class="sr-only" role="table" aria-label="Architecture components data table">
+        <caption>System architecture components and their relationships</caption>
+        <thead>
+            <tr>
+                <th>Component</th>
+                <th>Type</th>
+                <th>Purpose</th>
+                <th>Connections</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>API Gateway</td>
+                <td>Data Source</td>
+                <td>REST API endpoints</td>
+                <td>Connects to Kafka</td>
+            </tr>
+            <tr>
+                <td>Neo4j</td>
+                <td>Storage</td>
+                <td>Property Graph Database</td>
+                <td>Receives from Kafka and Spark, serves Analytics and Recommendations</td>
+            </tr>
+            <!-- Additional rows would be added for each component -->
+        </tbody>
+    </table>
+
+    <script>
+        // Application State Management
+        class ArchitectureDiagram {
+            constructor() {
+                this.selectedNode = null;
+                this.filteredType = null;
+                this.isDataFlowMode = false;
+                this.init();
+            }
+            
+            init() {
+                this.setupEventListeners();
+                this.setupKeyboardNavigation();
+                this.loadComponentData();
+            }
+            
+            setupEventListeners() {
+                // Node interactions
+                document.querySelectorAll('.node').forEach(node => {
+                    node.addEventListener('click', (e) => this.selectNode(e.currentTarget));
+                    node.addEventListener('mouseenter', (e) => this.showTooltip(e));
+                    node.addEventListener('mouseleave', () => this.hideTooltip());
+                    node.addEventListener('focus', (e) => this.handleNodeFocus(e.currentTarget));
+                });
+                
+                // Responsive resize handling
+                window.addEventListener('resize', this.debounce(() => {
+                    this.handleResize();
+                }, 250));
+            }
+            
+            setupKeyboardNavigation() {
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        this.resetView();
+                    }
+                    
+                    // Arrow key navigation for nodes
+                    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                        e.preventDefault();
+                        this.navigateNodes(e.key);
+                    }
+                    
+                    // Enter to select focused node
+                    if (e.key === 'Enter' && document.activeElement.classList.contains('node')) {
+                        this.selectNode(document.activeElement);
+                    }
+                });
+            }
+            
+            loadComponentData() {
+                this.components = {
+                    'api-gateway': {
+                        name: 'API Gateway',
+                        type: 'Data Source',
+                        description: 'Manages REST API endpoints and request routing',
+                        technology: 'Kong/AWS API Gateway',
+                        throughput: '10K req/sec',
+                        connections: ['kafka'],
+                        properties: {
+                            'Protocol': 'HTTP/HTTPS',
+                            'Authentication': 'OAuth 2.0',
+                            'Rate Limiting': '1000 req/min',
+                            'Load Balancing': 'Round Robin'
+                        }
+                    },
+                    'databases': {
+                        name: 'Legacy Databases',
+                        type: 'Data Source',
+                        description: 'Traditional relational and NoSQL databases',
+                        technology: 'PostgreSQL, MongoDB',
+                        throughput: '5K ops/sec',
+                        connections: ['kafka'],
+                        properties: {
+                            'Type': 'RDBMS + NoSQL',
+                            'CDC': 'Debezium',
+                            'Replication': 'Master-Slave',
+                            'Backup': 'Daily'
+                        }
+                    },
+                    'file-systems': {
+                        name: 'File Systems',
+                        type: 'Data Source',
+                        description: 'Batch file processing for historical data',
+                        technology: 'HDFS, S3',
+                        throughput: '1TB/hour',
+                        connections: ['spark'],
+                        properties: {
+                            'Formats': 'CSV, JSON, Parquet',
+                            'Compression': 'Snappy, GZIP',
+                            'Partitioning': 'Date-based',
+                            'Retention': '7 years'
+                        }
+                    },
+                    'kafka': {
+                        name: 'Apache Kafka',
+                        type: 'Processing Engine',
+                        description: 'Distributed streaming platform for real-time data',
+                        technology: 'Kafka 3.0',
+                        throughput: '1M msg/sec',
+                        connections: ['neo4j'],
+                        properties: {
+                            'Partitions': '12',
+                            'Replication': '3',
+                            'Retention': '7 days',
+                            'Compression': 'LZ4'
+                        }
+                    },
+                    'spark': {
+                        name: 'Apache Spark',
+                        type: 'Processing Engine',
+                        description: 'Large-scale data processing and analytics',
+                        technology: 'Spark 3.3',
+                        throughput: '10GB/min',
+                        connections: ['neo4j'],
+                        properties: {
+                            'Cluster Size': '20 nodes',
+                            'Memory': '512GB total',
+                            'Storage': 'HDFS',
+                            'Language': 'Scala, Python'
+                        }
+                    },
+                    'airflow': {
+                        name: 'Apache Airflow',
+                        type: 'Processing Engine',
+                        description: 'Workflow orchestration and scheduling',
+                        technology: 'Airflow 2.5',
+                        throughput: '1K tasks/day',
+                        connections: ['elasticsearch'],
+                        properties: {
+                            'DAGs': '150 active',
+                            'Executors': 'Kubernetes',
+                            'Scheduling': 'Cron-based',
+                            'Monitoring': 'Built-in UI'
+                        }
+                    },
+                    'neo4j': {
+                        name: 'Neo4j Graph Database',
+                        type: 'Storage System',
+                        description: 'Property graph database for complex relationships',
+                        technology: 'Neo4j 5.0',
+                        throughput: '100K ops/sec',
+                        connections: ['analytics-app', 'recommendation'],
+                        properties: {
+                            'Nodes': '50M',
+                            'Relationships': '200M',
+                            'Properties': '1B',
+                            'Query Language': 'Cypher'
+                        }
+                    },
+                    'elasticsearch': {
+                        name: 'Elasticsearch',
+                        type: 'Storage System',
+                        description: 'Search and analytics engine',
+                        technology: 'Elasticsearch 8.0',
+                        throughput: '50K queries/sec',
+                        connections: ['search-app'],
+                        properties: {
+                            'Indices': '500',
+                            'Documents': '100M',
+                            'Shards': '2000',
+                            'Replicas': '1'
+                        }
+                    },
+                    'analytics-app': {
+                        name: 'Graph Analytics',
+                        type: 'Application',
+                        description: 'Real-time pattern detection and analysis',
+                        technology: 'React, D3.js',
+                        throughput: '1K users',
+                        connections: ['visualization'],
+                        properties: {
+                            'Algorithms': 'PageRank, Community Detection',
+                            'Real-time': 'Yes',
+                            'Export': 'PDF, CSV',
+                            'API': 'GraphQL'
+                        }
+                    },
+                    'search-app': {
+                        name: 'Search Application',
+                        type: 'Application',
+                        description: 'Full-text search with faceted navigation',
+                        technology: 'Vue.js, Elasticsearch',
+                        throughput: '5K queries/min',
+                        connections: [],
+                        properties: {
+                            'Search Types': 'Full-text, Fuzzy, Geo',
+                            'Facets': '20 categories',
+                            'Auto-complete': 'Yes',
+                            'Languages': '15 supported'
+                        }
+                    },
+                    'recommendation': {
+                        name: 'Recommendation Engine',
+                        type: 'Application',
+                        description: 'ML-powered recommendation system',
+                        technology: 'Python, TensorFlow',
+                        throughput: '10K recs/sec',
+                        connections: [],
+                        properties: {
+                            'Algorithms': 'Collaborative Filtering, Content-based',
+                            'Model Update': 'Daily',
+                            'Accuracy': '85%',
+                            'Cold Start': 'Content-based fallback'
+                        }
+                    },
+                    'visualization': {
+                        name: 'Data Visualization',
+                        type: 'Application',
+                        description: 'Interactive dashboards and reporting',
+                        technology: 'React, D3.js, WebGL',
+                        throughput: '2K users',
+                        connections: [],
+                        properties: {
+                            'Chart Types': '15 available',
+                            'Real-time': 'Yes',
+                            'Export': 'PNG, SVG, PDF',
+                            'Responsive': 'Mobile-first'
+                        }
+                    }
+                };
+            }
+            
+            selectNode(nodeElement) {
+                // Remove previous selection
+                document.querySelectorAll('.node').forEach(n => n.classList.remove('selected'));
+                
+                // Add selection to current node
+                nodeElement.classList.add('selected');
+                this.selectedNode = nodeElement.dataset.id;
+                
+                // Update property panel
+                this.updatePropertyPanel(this.selectedNode);
+                
+                // Highlight connected edges
+                this.highlightConnections(this.selectedNode);
+                
+                // Announce selection for screen readers
+                this.announceSelection(this.selectedNode);
+            }
+            
+            updatePropertyPanel(nodeId) {
+                const component = this.components[nodeId];
+                if (!component) return;
+                
+                const panel = document.getElementById('propertyPanel');
+                const title = document.getElementById('propertyTitle');
+                const content = document.getElementById('propertyContent');
+                
+                title.textContent = component.name;
+                
+                content.innerHTML = `
+                    <div class="property-item">
+                        <span class="property-label">Type:</span>
+                        <span class="property-value">${component.type}</span>
+                    </div>
+                    <div class="property-item">
+                        <span class="property-label">Technology:</span>
+                        <span class="property-value">${component.technology}</span>
+                    </div>
+                    <div class="property-item">
+                        <span class="property-label">Throughput:</span>
+                        <span class="property-value">${component.throughput}</span>
+                    </div>
+                    <div style="margin: 16px 0; padding-top: 16px; border-top: 1px solid var(--border-color);">
+                        <h4 style="margin: 0 0 12px 0; font-size: 14px;">Description</h4>
+                        <p style="margin: 0; font-size: 12px; color: var(--text-secondary);">${component.description}</p>
+                    </div>
+                    <div style="margin: 16px 0; padding-top: 16px; border-top: 1px solid var(--border-color);">
+                        <h4 style="margin: 0 0 12px 0; font-size: 14px;">Properties</h4>
+                        ${Object.entries(component.properties).map(([key, value]) => `
+                            <div class="property-item">
+                                <span class="property-label">${key}:</span>
+                                <span class="property-value">${value}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                
+                panel.classList.add('visible');
+            }
+            
+            highlightConnections(nodeId) {
+                // Reset all edges
+                document.querySelectorAll('.edge').forEach(edge => {
+                    edge.classList.remove('highlighted');
+                });
+                
+                // Highlight connected edges
+                document.querySelectorAll(`.edge[data-from="${nodeId}"], .edge[data-to="${nodeId}"]`).forEach(edge => {
+                    edge.classList.add('highlighted');
+                });
+            }
+            
+            showTooltip(event) {
+                const nodeId = event.currentTarget.dataset.id;
+                const component = this.components[nodeId];
+                if (!component) return;
+                
+                const tooltip = document.getElementById('tooltip');
+                tooltip.innerHTML = `
+                    <strong>${component.name}</strong><br>
+                    ${component.type}<br>
+                    ${component.throughput}
+                `;
+                
+                const rect = event.currentTarget.getBoundingClientRect();
+                tooltip.style.left = (rect.right + 10) + 'px';
+                tooltip.style.top = rect.top + 'px';
+                tooltip.classList.add('visible');
+            }
+            
+            hideTooltip() {
+                document.getElementById('tooltip').classList.remove('visible');
+            }
+            
+            handleNodeFocus(nodeElement) {
+                // Ensure focused node is visible and highlighted
+                nodeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            
+            navigateNodes(direction) {
+                const nodes = Array.from(document.querySelectorAll('.node'));
+                const currentIndex = nodes.findIndex(node => node === document.activeElement);
+                
+                if (currentIndex === -1) {
+                    nodes[0]?.focus();
+                    return;
+                }
+                
+                let nextIndex;
+                switch (direction) {
+                    case 'ArrowRight':
+                        nextIndex = (currentIndex + 1) % nodes.length;
+                        break;
+                    case 'ArrowLeft':
+                        nextIndex = (currentIndex - 1 + nodes.length) % nodes.length;
+                        break;
+                    case 'ArrowDown':
+                        // Move to next row (approximate)
+                        nextIndex = Math.min(currentIndex + 3, nodes.length - 1);
+                        break;
+                    case 'ArrowUp':
+                        // Move to previous row (approximate)
+                        nextIndex = Math.max(currentIndex - 3, 0);
+                        break;
+                    default:
+                        return;
+                }
+                
+                nodes[nextIndex]?.focus();
+            }
+            
+            announceSelection(nodeId) {
+                const component = this.components[nodeId];
+                const announcement = `Selected ${component.name}, ${component.type}. ${component.description}`;
+                
+                // Create temporary element for screen reader announcement
+                const announcer = document.createElement('div');
+                announcer.setAttribute('aria-live', 'polite');
+                announcer.setAttribute('aria-atomic', 'true');
+                announcer.className = 'sr-only';
+                announcer.textContent = announcement;
+                document.body.appendChild(announcer);
+                
+                setTimeout(() => {
+                    document.body.removeChild(announcer);
+                }, 1000);
+            }
+            
+            handleResize() {
+                // Adjust property panel position on mobile
+                const panel = document.getElementById('propertyPanel');
+                if (window.innerWidth <= 768) {
+                    panel.style.position = 'static';
+                    panel.style.width = '100%';
+                } else {
+                    panel.style.position = 'absolute';
+                    panel.style.width = '280px';
+                }
+            }
+            
+            debounce(func, wait) {
+                let timeout;
+                return function executedFunction(...args) {
+                    const later = () => {
+                        clearTimeout(timeout);
+                        func(...args);
+                    };
+                    clearTimeout(timeout);
+                    timeout = setTimeout(later, wait);
+                };
+            }
+        }
+        
+        // Global functions for button controls
+        function showAllNodes() {
+            const diagram = window.architectureDiagram;
+            diagram.filteredType = null;
+            
+            document.querySelectorAll('.node').forEach(node => {
+                node.style.opacity = '1';
+                node.style.display = 'block';
+            });
+            
+            document.querySelectorAll('.edge').forEach(edge => {
+                edge.style.opacity = '1';
+                edge.style.display = 'block';
+            });
+            
+            // Update button states
+            document.querySelectorAll('.control-button').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+        
+        function filterByType(type) {
+            const diagram = window.architectureDiagram;
+            diagram.filteredType = type;
+            
+            document.querySelectorAll('.node').forEach(node => {
+                if (node.classList.contains(type)) {
+                    node.style.opacity = '1';
+                    node.style.display = 'block';
+                } else {
+                    node.style.opacity = '0.2';
+                }
+            });
+            
+            // Show edges connected to visible nodes
+            document.querySelectorAll('.edge').forEach(edge => {
+                const fromNode = document.querySelector(`[data-id="${edge.dataset.from}"]`);
+                const toNode = document.querySelector(`[data-id="${edge.dataset.to}"]`);
+                
+                if (fromNode?.classList.contains(type) || toNode?.classList.contains(type)) {
+                    edge.style.opacity = '1';
+                } else {
+                    edge.style.opacity = '0.2';
+                }
+            });
+            
+            // Update button states
+            document.querySelectorAll('.control-button').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+        
+        function highlightDataFlow() {
+            const diagram = window.architectureDiagram;
+            diagram.isDataFlowMode = !diagram.isDataFlowMode;
+            
+            if (diagram.isDataFlowMode) {
+                // Animate data flow
+                let step = 0;
+                const flowSteps = [
+                    ['api-gateway', 'databases', 'file-systems'],
+                    ['kafka', 'spark', 'airflow'],
+                    ['neo4j', 'elasticsearch'],
+                    ['analytics-app', 'search-app', 'recommendation'],
+                    ['visualization']
+                ];
+                
+                const animateFlow = () => {
+                    // Reset all nodes
+                    document.querySelectorAll('.node').forEach(node => {
+                        node.style.filter = '';
+                    });
+                    
+                    // Highlight current step
+                    if (step < flowSteps.length) {
+                        flowSteps[step].forEach(nodeId => {
+                            const node = document.querySelector(`[data-id="${nodeId}"]`);
+                            if (node) {
+                                node.style.filter = 'url(#glow)';
+                            }
+                        });
+                        step = (step + 1) % flowSteps.length;
+                    }
+                    
+                    if (diagram.isDataFlowMode) {
+                        setTimeout(animateFlow, 1500);
+                    }
+                };
+                
+                animateFlow();
+                event.target.textContent = 'Stop Flow';
+                event.target.classList.add('active');
+            } else {
+                // Stop animation
+                document.querySelectorAll('.node').forEach(node => {
+                    node.style.filter = '';
+                });
+                event.target.textContent = 'Data Flow';
+                event.target.classList.remove('active');
+            }
+        }
+        
+        function resetView() {
+            const diagram = window.architectureDiagram;
+            
+            // Reset all visual states
+            document.querySelectorAll('.node').forEach(node => {
+                node.classList.remove('selected');
+                node.style.opacity = '1';
+                node.style.filter = '';
+                node.style.display = 'block';
+            });
+            
+            document.querySelectorAll('.edge').forEach(edge => {
+                edge.classList.remove('highlighted');
+                edge.style.opacity = '1';
+                edge.style.display = 'block';
+            });
+            
+            // Hide property panel
+            document.getElementById('propertyPanel').classList.remove('visible');
+            
+            // Reset button states
+            document.querySelectorAll('.control-button').forEach(btn => btn.classList.remove('active'));
+            document.querySelector('.control-button').classList.add('active');
+            
+            // Reset state
+            diagram.selectedNode = null;
+            diagram.filteredType = null;
+            diagram.isDataFlowMode = false;
+            
+            // Stop any running animations
+            const flowButton = Array.from(document.querySelectorAll('.control-button')).find(btn => 
+                btn.textContent.includes('Flow')
+            );
+            if (flowButton) {
+                flowButton.textContent = 'Data Flow';
+            }
+        }
+        
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', () => {
+            window.architectureDiagram = new ArchitectureDiagram();
+            
+            // Set initial focus for keyboard users
+            const firstNode = document.querySelector('.node');
+            if (firstNode) {
+                firstNode.setAttribute('aria-describedby', 'diagram-desc');
+            }
+            
+            // Add export functionality
+            window.exportDiagram = () => {
+                const svg = document.querySelector('.architecture-svg');
+                const serializer = new XMLSerializer();
+                const svgString = serializer.serializeToString(svg);
+                const blob = new Blob([svgString], { type: 'image/svg+xml' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'architecture-diagram.svg';
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+        });
+    </script>
+</body>
+</html>

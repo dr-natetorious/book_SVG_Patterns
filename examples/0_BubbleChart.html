@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alert Fatigue Analysis - 5 Dimensions</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        
+        #container {
+            display: flex;
+            gap: 20px;
+            height: calc(100vh - 40px);
+        }
+        
+        #chart-area {
+            flex: 2;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        
+        #context-pane {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            overflow-y: auto;
+            max-width: 400px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 12px;
+        }
+        
+        button:hover {
+            background: #0056b3;
+        }
+        
+        .dimension-info {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        /* Alert bubble styles */
+        .alert-bubble {
+            cursor: pointer;
+            stroke: #fff;
+            stroke-width: 2;
+            transition: all 0.3s ease;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+        }
+        
+        .alert-bubble:hover {
+            stroke: #333;
+            stroke-width: 3;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+            transform: scale(1.05);
+        }
+        
+        .alert-bubble.selected {
+            stroke: #dc3545;
+            stroke-width: 4;
+            filter: drop-shadow(0 0 15px rgba(220, 53, 69, 0.6));
+        }
+        
+        /* False positive patterns */
+        .false-positive-high {
+            stroke-dasharray: 8,4;
+            opacity: 0.7;
+        }
+        
+        .false-positive-medium {
+            stroke-dasharray: 4,2;
+            opacity: 0.85;
+        }
+        
+        .false-positive-low {
+            stroke-dasharray: none;
+            opacity: 1;
+        }
+        
+        .critical-frequency {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        
+        /* Next action colors */
+        .action-auto_resolve { fill: #28a745; }
+        .action-escalate { fill: #dc3545; }
+        .action-investigate { fill: #fd7e14; }
+        .action-suppress { fill: #6c757d; }
+        .action-tune_threshold { fill: #ffc107; }
+        .action-merge_similar { fill: #17a2b8; }
+        .action-manual_review { fill: #6f42c1; }
+        
+        /* Axis styles */
+        .axis {
+            font-size: 11px;
+            color: #666;
+        }
+        
+        .axis-label {
+            font-size: 13px;
+            font-weight: bold;
+            fill: #333;
+        }
+        
+        .grid-line {
+            stroke: #e9ecef;
+            stroke-width: 1;
+            stroke-dasharray: 2,2;
+        }
+        
+        .quadrant {
+            fill: rgba(220, 53, 69, 0.05);
+            stroke: rgba(220, 53, 69, 0.2);
+            stroke-width: 2;
+            stroke-dasharray: 8,4;
+        }
+        
+        .quadrant-label {
+            font-size: 12px;
+            font-weight: bold;
+            fill: #dc3545;
+            text-anchor: middle;
+        }
+        
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.95);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1000;
+            max-width: 350px;
+            line-height: 1.5;
+        }
+        
+        .tooltip-header {
+            font-weight: bold;
+            font-size: 14px;
+            border-bottom: 1px solid #555;
+            padding-bottom: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .context-header {
+            border-bottom: 2px solid #dc3545;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .context-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #dc3545;
+        }
+        
+        .metric-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            padding: 5px 0;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .metric-value {
+            font-weight: bold;
+            color: #dc3545;
+        }
+        
+        .metric-value.good {
+            color: #28a745;
+        }
+        
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 15px 0;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 8px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .legend-item:hover {
+            background: #e9ecef;
+        }
+        
+        .legend-item.active {
+            background: #ffebee;
+            border: 1px solid #dc3545;
+        }
+        
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 15px 0;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 12px;
+            border-radius: 4px;
+            text-align: center;
+            border: 1px solid #dee2e6;
+        }
+        
+        .stat-number {
+            font-size: 18px;
+            font-weight: bold;
+            color: #dc3545;
+            display: block;
+        }
+        
+        .stat-label {
+            font-size: 10px;
+            color: #6c757d;
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="chart-area">
+            <div class="context-header">
+                <h3>Alert Fatigue Analysis - 5 Dimension Dashboard</h3>
+            </div>
+            
+            <div class="dimension-info">
+                <strong>5 Dimensions:</strong> 
+                X=Volume • Y=Cost • Size=Frequency • Color=Action • Pattern=False Positives
+            </div>
+            
+            <div class="controls">
+                <button onclick="generateData()">Generate Data</button>
+                <button onclick="resetView()">Reset View</button>
+                <button onclick="highlightHighImpact()">High Impact</button>
+                <button onclick="exportData()">Export</button>
+            </div>
+            
+            <div class="legend" id="legend"></div>
+            <svg id="chart"></svg>
+        </div>
+        
+        <div id="context-pane">
+            <div class="context-header">
+                <h3 id="context-title">Alert Overview</h3>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-number" id="total-clusters">--</span>
+                    <span class="stat-label">Clusters</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number" id="total-alerts">--</span>
+                    <span class="stat-label">Total Alerts</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number" id="total-cost">--</span>
+                    <span class="stat-label">Total Cost</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number" id="avg-fp">--</span>
+                    <span class="stat-label">Avg False Pos %</span>
+                </div>
+            </div>
+            
+            <div class="context-section" id="selected-details" style="display: none;">
+                <h4>Selected Cluster</h4>
+                <div id="cluster-info"></div>
+            </div>
+            
+            <div class="context-section">
+                <h4>Top Priorities</h4>
+                <div id="priorities"></div>
+            </div>
+            
+            <div class="context-section">
+                <h4>ROI Opportunities</h4>
+                <div id="roi-analysis"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="tooltip" id="tooltip"></div>
+
+    <script>
+        let svg, data = [], selectedCluster = null;
+        let width = 800, height = 600;
+        const margin = { top: 20, right: 80, bottom: 80, left: 120 };
+        
+        const actionTypes = {
+            'auto_resolve': { color: '#28a745', label: 'Auto Resolve' },
+            'suppress': { color: '#6c757d', label: 'Suppress' },
+            'tune_threshold': { color: '#ffc107', label: 'Tune Threshold' },
+            'merge_similar': { color: '#17a2b8', label: 'Merge Similar' },
+            'investigate': { color: '#fd7e14', label: 'Investigate' },
+            'manual_review': { color: '#6f42c1', label: 'Manual Review' },
+            'escalate': { color: '#dc3545', label: 'Escalate' }
+        };
+        
+        function generateData() {
+            const patterns = [
+                { name: 'Disk Space Critical', volume: 150, cost: 180, freq: 8.5, fp: 25 },
+                { name: 'Memory Leak Detection', volume: 80, cost: 420, freq: 3.2, fp: 45 },
+                { name: 'API Response Time', volume: 300, cost: 320, freq: 12.1, fp: 60 },
+                { name: 'DB Connection Pool', volume: 45, cost: 650, freq: 2.8, fp: 15 },
+                { name: 'SSL Cert Expiry', volume: 12, cost: 85, freq: 0.8, fp: 5 },
+                { name: 'Network Packet Loss', volume: 90, cost: 275, freq: 6.3, fp: 35 },
+                { name: 'Service Unavailable', volume: 25, cost: 890, freq: 1.5, fp: 10 },
+                { name: 'Log Error Spike', volume: 450, cost: 195, freq: 15.2, fp: 75 },
+                { name: 'CPU High Utilization', volume: 200, cost: 240, freq: 9.8, fp: 55 },
+                { name: 'Queue Depth Critical', volume: 65, cost: 380, freq: 4.7, fp: 30 },
+                { name: 'Cache Hit Rate Low', volume: 120, cost: 210, freq: 7.1, fp: 40 },
+                { name: 'Container Restart', volume: 85, cost: 290, freq: 5.9, fp: 25 }
+            ];
+            
+            data = patterns.map((p, i) => {
+                let action;
+                if (p.fp > 60) action = Math.random() > 0.5 ? 'suppress' : 'tune_threshold';
+                else if (p.volume > 200) action = 'auto_resolve';
+                else if (p.cost > 400) action = 'escalate';
+                else action = Object.keys(actionTypes)[Math.floor(Math.random() * 7)];
+                
+                return {
+                    id: i,
+                    name: p.name,
+                    alert_volume: p.volume + Math.floor((Math.random() - 0.5) * 50),
+                    human_effort_cost: p.cost + Math.floor((Math.random() - 0.5) * 100),
+                    frequency_per_day: p.freq + (Math.random() - 0.5) * 2,
+                    false_positive_rate: Math.max(0, Math.min(95, p.fp + (Math.random() - 0.5) * 20)),
+                    next_action_type: action,
+                    potential_savings: Math.floor(p.cost * p.freq * 0.3)
+                };
+            });
+            
+            createChart();
+            updateStats();
+        }
+        
+        function createChart() {
+            const container = d3.select('#chart-area');
+            width = container.node().getBoundingClientRect().width - 40;
+            height = container.node().getBoundingClientRect().height - 200;
+            
+            d3.select('#chart').selectAll("*").remove();
+            
+            svg = d3.select('#chart')
+                .attr('width', width)
+                .attr('height', height);
+            
+            const chartWidth = width - margin.left - margin.right;
+            const chartHeight = height - margin.top - margin.bottom;
+            
+            const g = svg.append('g')
+                .attr('transform', `translate(${margin.left}, ${margin.top})`);
+            
+            // Scales
+            const xScale = d3.scaleLinear()
+                .domain([0, d3.max(data, d => d.alert_volume)])
+                .range([0, chartWidth]).nice();
+            
+            const yScale = d3.scaleLinear()
+                .domain([0, d3.max(data, d => d.human_effort_cost)])
+                .range([chartHeight, 0]).nice();
+            
+            const radiusScale = d3.scaleSqrt()
+                .domain([0, d3.max(data, d => d.frequency_per_day)])
+                .range([4, 30]);
+            
+            // High impact quadrant
+            const xThresh = xScale.domain()[1] * 0.6;
+            const yThresh = yScale.domain()[1] * 0.6;
+            
+            g.append('rect')
+                .attr('class', 'quadrant')
+                .attr('x', xScale(xThresh))
+                .attr('y', 0)
+                .attr('width', chartWidth - xScale(xThresh))
+                .attr('height', yScale(yThresh));
+            
+            g.append('text')
+                .attr('class', 'quadrant-label')
+                .attr('x', xScale(xThresh) + (chartWidth - xScale(xThresh)) / 2)
+                .attr('y', yScale(yThresh) / 2)
+                .text('HIGH IMPACT');
+            
+            // Grid
+            g.selectAll('.grid-x')
+                .data(xScale.ticks(8))
+                .enter().append('line')
+                .attr('class', 'grid-line')
+                .attr('x1', d => xScale(d))
+                .attr('x2', d => xScale(d))
+                .attr('y1', 0)
+                .attr('y2', chartHeight);
+            
+            g.selectAll('.grid-y')
+                .data(yScale.ticks(6))
+                .enter().append('line')
+                .attr('class', 'grid-line')
+                .attr('x1', 0)
+                .attr('x2', chartWidth)
+                .attr('y1', d => yScale(d))
+                .attr('y2', d => yScale(d));
+            
+            // Axes
+            g.append('g')
+                .attr('class', 'axis')
+                .attr('transform', `translate(0, ${chartHeight})`)
+                .call(d3.axisBottom(xScale).tickFormat(d => d + ' alerts'));
+            
+            g.append('g')
+                .attr('class', 'axis')
+                .call(d3.axisLeft(yScale).tickFormat(d => '$' + d));
+            
+            // Axis labels
+            g.append('text')
+                .attr('class', 'axis-label')
+                .attr('x', chartWidth / 2)
+                .attr('y', chartHeight + 50)
+                .attr('text-anchor', 'middle')
+                .text('Alert Volume');
+            
+            g.append('text')
+                .attr('class', 'axis-label')
+                .attr('transform', 'rotate(-90)')
+                .attr('x', -chartHeight / 2)
+                .attr('y', -70)
+                .attr('text-anchor', 'middle')
+                .text('Human Effort Cost (USD)');
+            
+            // Bubbles
+            g.selectAll('.alert-bubble')
+                .data(data)
+                .enter().append('circle')
+                .attr('class', d => {
+                    let classes = `alert-bubble action-${d.next_action_type}`;
+                    if (d.false_positive_rate >= 60) classes += ' false-positive-high';
+                    else if (d.false_positive_rate >= 30) classes += ' false-positive-medium';
+                    else classes += ' false-positive-low';
+                    if (d.frequency_per_day > 10) classes += ' critical-frequency';
+                    return classes;
+                })
+                .attr('cx', d => xScale(d.alert_volume))
+                .attr('cy', d => yScale(d.human_effort_cost))
+                .attr('r', d => radiusScale(d.frequency_per_day))
+                .attr('fill', d => actionTypes[d.next_action_type].color)
+                .on('mouseover', showTooltip)
+                .on('mouseout', hideTooltip)
+                .on('click', selectCluster);
+            
+            updateLegend();
+        }
+        
+        function showTooltip(event, d) {
+            const tooltip = d3.select('#tooltip');
+            const fpLevel = d.false_positive_rate >= 60 ? 'HIGH' : 
+                           d.false_positive_rate >= 30 ? 'MEDIUM' : 'LOW';
+            
+            tooltip.html(`
+                <div class="tooltip-header">${d.name}</div>
+                <div>Volume: ${d.alert_volume} alerts</div>
+                <div>Cost: $${d.human_effort_cost}</div>
+                <div>Frequency: ${d.frequency_per_day.toFixed(1)}/day</div>
+                <div>Action: ${actionTypes[d.next_action_type].label}</div>
+                <div>False Positive: ${d.false_positive_rate}% (${fpLevel})</div>
+                <div>Potential Savings: $${d.potential_savings}/month</div>
+            `)
+            .style('left', (event.pageX + 10) + 'px')
+            .style('top', (event.pageY - 10) + 'px')
+            .style('opacity', 1);
+        }
+        
+        function hideTooltip() {
+            d3.select('#tooltip').style('opacity', 0);
+        }
+        
+        function selectCluster(event, d) {
+            svg.selectAll('.alert-bubble').classed('selected', false);
+            d3.select(event.target).classed('selected', true);
+            selectedCluster = d;
+            updateSelectedDetails(d);
+        }
+        
+        function updateSelectedDetails(d) {
+            document.getElementById('context-title').textContent = d.name;
+            document.getElementById('selected-details').style.display = 'block';
+            
+            document.getElementById('cluster-info').innerHTML = `
+                <div class="metric-item">
+                    <span>Alert Volume:</span>
+                    <span class="metric-value">${d.alert_volume}</span>
+                </div>
+                <div class="metric-item">
+                    <span>Human Cost:</span>
+                    <span class="metric-value">$${d.human_effort_cost}</span>
+                </div>
+                <div class="metric-item">
+                    <span>Frequency:</span>
+                    <span class="metric-value">${d.frequency_per_day.toFixed(1)}/day</span>
+                </div>
+                <div class="metric-item">
+                    <span>False Positive:</span>
+                    <span class="metric-value">${d.false_positive_rate}%</span>
+                </div>
+                <div class="metric-item">
+                    <span>Next Action:</span>
+                    <span class="metric-value">${actionTypes[d.next_action_type].label}</span>
+                </div>
+                <div class="metric-item">
+                    <span>Monthly Savings:</span>
+                    <span class="metric-value good">$${d.potential_savings}</span>
+                </div>
+            `;
+        }
+        
+        function updateLegend() {
+            const legend = d3.select('#legend');
+            legend.selectAll('*').remove();
+            
+            Object.entries(actionTypes).forEach(([key, value]) => {
+                const count = data.filter(d => d.next_action_type === key).length;
+                if (count === 0) return;
+                
+                const item = legend.append('div')
+                    .attr('class', 'legend-item')
+                    .on('click', () => filterByAction(key));
+                
+                item.append('div')
+                    .attr('class', 'legend-color')
+                    .style('background-color', value.color);
+                
+                item.append('span')
+                    .text(`${value.label} (${count})`);
+            });
+        }
+        
+        function filterByAction(actionType) {
+            const active = d3.select('#legend').selectAll('.legend-item')
+                .classed('active', function() {
+                    const isThis = this.textContent.includes(actionTypes[actionType].label);
+                    if (isThis) {
+                        const wasActive = d3.select(this).classed('active');
+                        d3.select('#legend').selectAll('.legend-item').classed('active', false);
+                        return !wasActive;
+                    }
+                    return false;
+                });
+            
+            const isActive = active.classed('active');
+            
+            svg.selectAll('.alert-bubble')
+                .style('opacity', d => (!isActive || d.next_action_type === actionType) ? 1 : 0.2);
+        }
+        
+        function updateStats() {
+            const totalClusters = data.length;
+            const totalAlerts = d3.sum(data, d => d.alert_volume);
+            const totalCost = d3.sum(data, d => d.human_effort_cost);
+            const avgFP = d3.mean(data, d => d.false_positive_rate);
+            
+            document.getElementById('total-clusters').textContent = totalClusters;
+            document.getElementById('total-alerts').textContent = totalAlerts.toLocaleString();
+            document.getElementById('total-cost').textContent = '$' + totalCost.toLocaleString();
+            document.getElementById('avg-fp').textContent = Math.round(avgFP) + '%';
+            
+            // Update priorities
+            const topPriorities = data
+                .sort((a, b) => (b.alert_volume * b.human_effort_cost) - (a.alert_volume * a.human_effort_cost))
+                .slice(0, 3);
+            
+            document.getElementById('priorities').innerHTML = topPriorities
+                .map((d, i) => `
+                    <div class="metric-item">
+                        <span>${i + 1}. ${d.name}:</span>
+                        <span class="metric-value">${actionTypes[d.next_action_type].label}</span>
+                    </div>
+                `).join('');
+            
+            // Update ROI
+            const topROI = data
+                .sort((a, b) => b.potential_savings - a.potential_savings)
+                .slice(0, 3);
+            
+            document.getElementById('roi-analysis').innerHTML = topROI
+                .map((d, i) => `
+                    <div class="metric-item">
+                        <span>${i + 1}. ${d.name}:</span>
+                        <span class="metric-value good">$${d.potential_savings}/mo</span>
+                    </div>
+                `).join('');
+        }
+        
+        function highlightHighImpact() {
+            const threshold = d3.quantile(
+                data.map(d => d.alert_volume * d.human_effort_cost).sort((a, b) => a - b),
+                0.75
+            );
+            
+            svg.selectAll('.alert-bubble')
+                .style('opacity', d => (d.alert_volume * d.human_effort_cost >= threshold) ? 1 : 0.3);
+        }
+        
+        function resetView() {
+            svg.selectAll('.alert-bubble')
+                .classed('selected', false)
+                .style('opacity', 1);
+            
+            d3.select('#legend').selectAll('.legend-item').classed('active', false);
+            document.getElementById('selected-details').style.display = 'none';
+            document.getElementById('context-title').textContent = 'Alert Overview';
+        }
+        
+        function exportData() {
+            const analysis = {
+                summary: {
+                    total_clusters: data.length,
+                    total_alerts: d3.sum(data, d => d.alert_volume),
+                    total_cost: d3.sum(data, d => d.human_effort_cost),
+                    potential_savings: d3.sum(data, d => d.potential_savings)
+                },
+                clusters: data,
+                generated: new Date().toISOString()
+            };
+            
+            const blob = new Blob([JSON.stringify(analysis, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'alert-analysis.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        // Initialize
+        generateData();
+        
+        // Resize handler
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                if (data.length > 0) createChart();
+            }, 250);
+        });
+    </script>
+</body>
+</html>
