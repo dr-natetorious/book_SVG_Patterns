@@ -1,0 +1,30 @@
+# FastAPI Release Dashboard Requirements
+# Modern professional development stack for SSE-enabled dashboard
+
+# Core FastAPI Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Template Engine & Static Files
+jinja2==3.1.2           # Template rendering for HTML responses
+aiofiles==23.2.0        # Async file operations for static file serving
+
+# Data Validation & Serialization
+pydantic==2.5.0         # Data validation and settings management
+pydantic-settings==2.1.0 # Environment-based configuration
+
+# Development & Debugging
+python-multipart==0.0.6 # Form data parsing support
+python-jose[cryptography]==3.3.0 # JWT token handling (future auth)
+
+# Logging & Monitoring
+structlog==23.2.0       # Structured logging for better observability
+rich==13.7.0            # Rich console output for development
+
+# Development Tools (optional but recommended)
+pytest==7.4.3          # Testing framework
+pytest-asyncio==0.21.1 # Async test support
+httpx==0.25.2          # Modern HTTP client for testing
+
+# Production Deployment (if needed)
+gunicorn==21.2.0        # WSGI server for production deployment
