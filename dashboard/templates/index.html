@@ -295,17 +295,15 @@
                     document.getElementById('messageCount').textContent = messageCount;
                     document.getElementById('eventCountDisplay').textContent = messageCount;
 
-                    // Set client ID from the first message if not already set
-                    if (!clientId && (data.type === 'initial_data' || data.client_id)) {
-                        // Try to extract client ID from various possible sources
-                        if (data.client_id) {
+                    // Set client ID from server messages
+                    if (!clientId) {
+                        if (data.type === 'client_connected' && data.client_id) {
+                            // Extract client ID from client_connected message
                             clientId = data.client_id;
-                        } else if (data.type === 'initial_data') {
-                            // Generate a display ID based on connection time for identification
-                            clientId = `Client-${new Date().getTime().toString().slice(-6)}`;
-                        }
-                        
-                        if (clientId) {
+                            document.getElementById('clientId').textContent = clientId;
+                        } else if (data.client_id) {
+                            // Extract from any message that has client_id
+                            clientId = data.client_id;
                             document.getElementById('clientId').textContent = clientId;
                         }
                     }
