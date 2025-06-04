@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude-Style Input Control</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            background: #1a1a1a;
+            color: #e4e4e7;
+            padding: 0;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .chat-container {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #1a1a1a;
+            border-top: 1px solid #2d2d30;
+            padding: 12px 16px;
+        }
+
+        .input-wrapper {
+            position: relative;
+            background: #2d2d30;
+            border-radius: 24px;
+            border: 1px solid #404040;
+            transition: all 0.2s ease;
+            min-height: 48px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+
+        .input-wrapper:focus-within {
+            border-color: #8b5cf6;
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+        }
+
+        .rich-input {
+            width: 100%;
+            background: none;
+            border: none;
+            outline: none;
+            color: #e4e4e7;
+            font-size: 16px;
+            line-height: 1.5;
+            resize: none;
+            min-height: 32px;
+            max-height: 120px;
+            font-family: inherit;
+        }
+
+        .rich-input::placeholder {
+            color: #71717a;
+        }
+
+        .controls-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
+            width: 100%;
+            min-height: 40px;
+            gap: 8px;
+        }
+
+        .controls-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .right-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .control-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: none;
+            border-radius: 50%;
+            color: #a1a1aa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .control-btn:hover {
+            background: #404040;
+            color: #e4e4e7;
+        }
+
+        .control-btn.active {
+            background: #8b5cf6;
+            color: white;
+        }
+
+        .submit-btn {
+            background: #8b5cf6;
+            color: white;
+        }
+
+        .submit-btn:hover {
+            background: #7c3aed;
+        }
+
+        .submit-btn:disabled {
+            background: #52525b;
+            color: #71717a;
+            cursor: not-allowed;
+        }
+
+        .model-dropdown-toggle {
+            background: #404040;
+            border: 1px solid #52525b;
+            color: #e4e4e7;
+            padding: 0;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            width: 32px;
+            height: 32px;
+            position: relative;
+        }
+
+        .model-dropdown-toggle:hover {
+            background: #52525b;
+            border-color: #6b7280;
+        }
+
+        .model-dropdown-toggle i {
+            position: absolute;
+        }
+
+        .model-dropdown-toggle .bi-cpu {
+            font-size: 14px;
+            z-index: 2;
+        }
+
+        .model-dropdown-toggle .bi-chevron-down {
+            font-size: 6px;
+            bottom: 3px;
+            right: 3px;
+            z-index: 3;
+        }
+
+        /* Dropdown Styles */
+        .settings-dropdown {
+            background: #2d2d30;
+            border: 1px solid #404040;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            padding: 8px 0;
+            min-width: 280px;
+            transform: translateY(-100%);
+            margin-bottom: -8px;
+        }
+
+        .dropdown-item {
+            color: #e4e4e7;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .dropdown-item:hover {
+            background: #404040;
+            color: #e4e4e7;
+        }
+
+        .dropdown-divider {
+            height: 1px;
+            background: #404040;
+            margin: 8px 0;
+        }
+
+        .model-selector {
+            background: #2d2d30;
+            border: 1px solid #404040;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            padding: 8px 0;
+            min-width: 320px;
+            max-height: 400px;
+            overflow-y: auto;
+            transform: translateY(-100%);
+            margin-bottom: -8px;
+        }
+
+        .model-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            color: #e4e4e7;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .model-item:hover {
+            background: #404040;
+        }
+
+        .model-item.selected {
+            background: #8b5cf6;
+        }
+
+        .model-info {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .model-name {
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .model-description {
+            font-size: 12px;
+            color: #a1a1aa;
+        }
+
+        .badge-new {
+            background: #dc2626;
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+        }
+
+        /* Attachment preview area */
+        .attachment-preview {
+            background: #2d2d30;
+            border: 1px solid #404040;
+            border-radius: 12px;
+            padding: 12px;
+            margin-top: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .attachment-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 8px;
+        }
+
+        .attachment-item {
+            position: relative;
+            background: #404040;
+            border-radius: 8px;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .attachment-item:hover {
+            background: #52525b;
+        }
+
+        .attachment-item .remove-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 20px;
+            height: 20px;
+            background: #dc2626;
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .attachment-icon {
+            font-size: 24px;
+            margin-bottom: 4px;
+            color: #a1a1aa;
+        }
+
+        .attachment-name {
+            font-size: 11px;
+            color: #e4e4e7;
+            word-break: break-word;
+        }
+
+        /* Attachment dropdown */
+        .attachment-dropdown {
+            background: #2d2d30;
+            border: 1px solid #404040;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            padding: 8px 0;
+            min-width: 200px;
+            transform: translateY(-100%);
+            margin-bottom: -8px;
+        }
+
+        .attachment-dropdown .dropdown-item {
+            color: #e4e4e7;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .attachment-dropdown .dropdown-item:hover {
+            background: #404040;
+            color: #e4e4e7;
+        }
+
+        .attachment-dropdown .dropdown-item i {
+            font-size: 18px;
+            width: 20px;
+        }
+
+        /* Fallback text for icons if they don't load */
+        .control-btn::before,
+        .format-btn::before,
+        .dropdown-item i::before {
+            font-family: 'bootstrap-icons', monospace;
+        }
+
+        /* Icon fallbacks */
+        .bi-plus::before { content: "+"; }
+        .bi-sliders::before { content: "⚙"; }
+        .bi-arrow-up::before { content: "↑"; }
+        .bi-type-bold::before { content: "B"; font-weight: bold; }
+        .bi-type-italic::before { content: "I"; font-style: italic; }
+        .bi-code::before { content: "<>"; }
+        .bi-link-45deg::before { content: "🔗"; }
+        .bi-list-ul::before { content: "•"; }
+        .bi-cpu::before { content: "⚡"; }
+        .bi-chevron-down::before { content: "▼"; }
+        .bi-check::before { content: "✓"; }
+        .bi-three-dots::before { content: "⋯"; }
+        .bi-search::before { content: "🔍"; }
+        .bi-brush::before { content: "🎨"; }
+        .bi-clock-history::before { content: "⏱"; }
+        .bi-globe::before { content: "🌐"; }
+        .bi-folder::before { content: "📁"; }
+        .bi-envelope::before { content: "✉"; }
+        .bi-calendar::before { content: "📅"; }
+        .bi-zap::before { content: "⚡"; }
+        .bi-images::before { content: "🖼"; }
+        .bi-camera::before { content: "📷"; }
+        .bi-google::before { content: "🌐"; }
+        .bi-x::before { content: "×"; }
+
+        .typing-indicator {
+            display: none;
+            color: #a1a1aa;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+
+        .typing-indicator.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid h-100 d-flex flex-column">
+        <!-- Main content area (placeholder) -->
+        <div class="flex-grow-1 d-flex align-items-center justify-content-center">
+            <div class="text-center">
+                <h1 class="display-4 mb-3">Claude-Style Input Control</h1>
+                <p class="lead text-muted">Rich text input with model selection, formatting, and settings</p>
+            </div>
+        </div>
+
+        <!-- Chat input container -->
+        <div class="chat-container">
+            <!-- Main input wrapper -->
+            <div class="input-wrapper">
+                <textarea 
+                    class="rich-input" 
+                    id="messageInput"
+                    placeholder="How can I help you today?"
+                    rows="1"></textarea>
+            </div>
+
+            <!-- Controls row below input -->
+            <div class="controls-row">
+                <div class="controls-group">
+                    <!-- Add button -->
+                    <div class="dropdown">
+                        <button class="control-btn" id="addBtn" data-bs-toggle="dropdown" aria-expanded="false" title="Add">
+                            <i class="bi bi-plus"></i>
+                        </button>
+                        <!-- Attachment options dropdown -->
+                        <div class="dropdown-menu attachment-dropdown">
+                            <button class="dropdown-item" data-action="photo-library">
+                                <i class="bi bi-images"></i>
+                                <span>Photo Library</span>
+                            </button>
+                            <button class="dropdown-item" data-action="take-photo">
+                                <i class="bi bi-camera"></i>
+                                <span>Take Photo</span>
+                            </button>
+                            <button class="dropdown-item" data-action="choose-files">
+                                <i class="bi bi-folder"></i>
+                                <span>Choose Files</span>
+                            </button>
+                            <button class="dropdown-item" data-action="google-drive">
+                                <i class="bi bi-google"></i>
+                                <span>Google Drive</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Settings button -->
+                    <div class="dropdown">
+                        <button class="control-btn" id="settingsBtn" data-bs-toggle="dropdown" aria-expanded="false" title="Settings">
+                            <i class="bi bi-sliders"></i>
+                        </button>
+                        <!-- Settings Dropdown -->
+                        <div class="dropdown-menu settings-dropdown">
+                            <button class="dropdown-item">
+                                <i class="bi bi-search"></i>
+                                <span>Search menu</span>
+                            </button>
+                            <div class="dropdown-divider"></div>
+                            <button class="dropdown-item">
+                                <i class="bi bi-brush"></i>
+                                <div>
+                                    <div>Use style</div>
+                                    <small class="text-muted">Apply formatting styles</small>
+                                </div>
+                            </button>
+                            <button class="dropdown-item">
+                                <i class="bi bi-clock-history"></i>
+                                <div class="d-flex justify-content-between align-items-center w-100">
+                                    <div>
+                                        <div>Extended thinking</div>
+                                        <small class="text-muted">Enable deeper analysis</small>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="extendedThinking">
+                                    </div>
+                                </div>
+                            </button>
+                            <button class="dropdown-item">
+                                <i class="bi bi-globe"></i>
+                                <div class="d-flex justify-content-between align-items-center w-100">
+                                    <div>
+                                        <div>Web search</div>
+                                        <small class="text-muted">Search the internet</small>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="webSearch" checked>
+                                    </div>
+                                </div>
+                            </button>
+                            <button class="dropdown-item">
+                                <i class="bi bi-folder"></i>
+                                <div class="d-flex justify-content-between align-items-center w-100">
+                                    <div>
+                                        <div>Drive search</div>
+                                        <small class="badge bg-primary">BETA</small>
+                                    </div>
+                                    <span class="text-muted">Connect</span>
+                                </div>
+                            </button>
+                            <button class="dropdown-item">
+                                <i class="bi bi-envelope"></i>
+                                <div class="d-flex justify-content-between align-items-center w-100">
+                                    <div>Gmail search</div>
+                                    <span class="text-muted">Connect</span>
+                                </div>
+                            </button>
+                            <button class="dropdown-item">
+                                <i class="bi bi-calendar"></i>
+                                <div class="d-flex justify-content-between align-items-center w-100">
+                                    <div>Calendar search</div>
+                                    <span class="text-muted">Connect</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Model selector and submit button on the right -->
+                <div class="right-controls">
+                    <div class="dropdown">
+                        <div class="model-dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Select Model">
+                            <i class="bi bi-cpu"></i>
+                            <i class="bi bi-chevron-down"></i>
+                        </div>
+                        <!-- Model Selection Dropdown -->
+                        <div class="dropdown-menu model-selector">
+                            <button class="model-item" data-model="claude-opus-4">
+                                <div class="model-info d-flex align-items-center">
+                                    <i class="bi bi-cpu me-2"></i>
+                                    <div>
+                                        <div class="model-name">
+                                            Claude Opus 4 
+                                            <span class="badge-new">New</span>
+                                        </div>
+                                        <div class="model-description">Powerful, large model for complex challenges</div>
+                                    </div>
+                                </div>
+                            </button>
+                            <button class="model-item selected" data-model="claude-sonnet-4">
+                                <div class="model-info d-flex align-items-center">
+                                    <i class="bi bi-cpu me-2"></i>
+                                    <div>
+                                        <div class="model-name">Claude Sonnet 4</div>
+                                        <div class="model-description">Smart, efficient model for everyday use</div>
+                                    </div>
+                                </div>
+                                <i class="bi bi-check"></i>
+                            </button>
+                            <div class="dropdown-divider"></div>
+                            <div class="px-3 py-2">
+                                <small class="text-muted">More models</small>
+                            </div>
+                            <button class="model-item" data-model="claude-sonnet-3.7">
+                                <div class="model-info d-flex align-items-center">
+                                    <i class="bi bi-cpu me-2"></i>
+                                    <div>
+                                        <div class="model-name">Claude Sonnet 3.7</div>
+                                    </div>
+                                </div>
+                            </button>
+                            <button class="model-item" data-model="claude-opus-3">
+                                <div class="model-info d-flex align-items-center">
+                                    <i class="bi bi-cpu me-2"></i>
+                                    <div>
+                                        <div class="model-name">Claude Opus 3</div>
+                                    </div>
+                                </div>
+                            </button>
+                            <button class="model-item" data-model="claude-haiku-3.5">
+                                <div class="model-info d-flex align-items-center">
+                                    <i class="bi bi-zap me-2"></i>
+                                    <div>
+                                        <div class="model-name">Claude Haiku 3.5</div>
+                                        <div class="model-description">Fastest model for daily tasks</div>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button class="control-btn submit-btn" id="submitBtn" disabled title="Send">
+                        <i class="bi bi-arrow-up"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Attachment preview area -->
+            <div class="attachment-preview" id="attachmentPreview" style="display: none;">
+                <div class="attachment-grid" id="attachmentGrid">
+                    <!-- Attachments will be displayed here -->
+                </div>
+            </div>
+
+            <!-- Typing indicator -->
+            <div class="typing-indicator" id="typingIndicator">
+                <i class="bi bi-three-dots"></i> Claude is thinking...
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+    <script>
+        class ClaudeInputControl {
+            constructor() {
+                this.messageInput = document.getElementById('messageInput');
+                this.submitBtn = document.getElementById('submitBtn');
+                this.addBtn = document.getElementById('addBtn');
+                this.settingsBtn = document.getElementById('settingsBtn');
+                this.typingIndicator = document.getElementById('typingIndicator');
+                
+                this.selectedModel = 'claude-sonnet-4';
+                
+                this.initializeEventListeners();
+                this.initializeDropdowns();
+            }
+
+            initializeEventListeners() {
+                // Auto-resize textarea
+                this.messageInput.addEventListener('input', () => {
+                    this.autoResize();
+                    this.toggleSubmitButton();
+                });
+
+                // Submit on Ctrl+Enter
+                this.messageInput.addEventListener('keydown', (e) => {
+                    if (e.ctrlKey && e.key === 'Enter') {
+                        this.handleSubmit();
+                    }
+                });
+
+                // Submit button
+                this.submitBtn.addEventListener('click', () => {
+                    this.handleSubmit();
+                });
+
+                // Attachment option handlers
+                document.querySelectorAll('[data-action]').forEach(item => {
+                    item.addEventListener('click', () => {
+                        this.handleAttachment(item.dataset.action);
+                    });
+                });
+
+                // Model selection
+                document.querySelectorAll('[data-model]').forEach(item => {
+                    item.addEventListener('click', () => {
+                        this.selectModel(item.dataset.model, item.querySelector('.model-name').textContent.trim());
+                    });
+                });
+
+                // Settings toggles
+                document.getElementById('extendedThinking').addEventListener('change', (e) => {
+                    this.handleSettingToggle('extendedThinking', e.target.checked);
+                });
+
+                document.getElementById('webSearch').addEventListener('change', (e) => {
+                    this.handleSettingToggle('webSearch', e.target.checked);
+                });
+            }
+
+            initializeDropdowns() {
+                // Initialize Bootstrap dropdowns
+                const dropdownElements = document.querySelectorAll('[data-bs-toggle="dropdown"]');
+                dropdownElements.forEach(element => {
+                    new bootstrap.Dropdown(element);
+                });
+            }
+
+            autoResize() {
+                this.messageInput.style.height = 'auto';
+                this.messageInput.style.height = Math.min(this.messageInput.scrollHeight, 120) + 'px';
+            }
+
+            toggleSubmitButton() {
+                const hasContent = this.messageInput.value.trim().length > 0;
+                this.submitBtn.disabled = !hasContent;
+            }
+
+            handleSubmit() {
+                const message = this.messageInput.value.trim();
+                if (!message) return;
+
+                console.log('Submitting message:', message);
+                console.log('Using model:', this.selectedModel);
+                
+                // Mock API call
+                this.simulateAPICall(message);
+                
+                // Clear input
+                this.messageInput.value = '';
+                this.autoResize();
+                this.toggleSubmitButton();
+            }
+
+            handleAttachment(action) {
+                console.log('Attachment action:', action);
+                
+                const mockFiles = {
+                    'photo-library': [
+                        { name: 'vacation.jpg', type: 'image', icon: '🖼' },
+                        { name: 'screenshot.png', type: 'image', icon: '🖼' }
+                    ],
+                    'take-photo': [
+                        { name: 'new-photo.jpg', type: 'image', icon: '📷' }
+                    ],
+                    'choose-files': [
+                        { name: 'document.pdf', type: 'file', icon: '📄' },
+                        { name: 'presentation.pptx', type: 'file', icon: '📊' }
+                    ],
+                    'google-drive': [
+                        { name: 'report.docx', type: 'drive', icon: '📝' },
+                        { name: 'data.xlsx', type: 'drive', icon: '📈' }
+                    ]
+                };
+
+                const files = mockFiles[action] || [];
+                files.forEach(file => this.addAttachment(file));
+            }
+
+            addAttachment(file) {
+                const attachmentPreview = document.getElementById('attachmentPreview');
+                const attachmentGrid = document.getElementById('attachmentGrid');
+                
+                // Show preview area if hidden
+                attachmentPreview.style.display = 'block';
+                
+                // Create attachment item
+                const attachmentItem = document.createElement('div');
+                attachmentItem.className = 'attachment-item';
+                attachmentItem.innerHTML = `
+                    <button class="remove-btn" onclick="this.parentElement.remove(); window.claudeInput.checkAttachments();">
+                        <i class="bi bi-x"></i>
+                    </button>
+                    <div class="attachment-icon">${file.icon}</div>
+                    <div class="attachment-name">${file.name}</div>
+                `;
+                
+                attachmentGrid.appendChild(attachmentItem);
+                
+                console.log('Added attachment:', file);
+            }
+
+            checkAttachments() {
+                const attachmentPreview = document.getElementById('attachmentPreview');
+                const attachmentGrid = document.getElementById('attachmentGrid');
+                
+                if (attachmentGrid.children.length === 0) {
+                    attachmentPreview.style.display = 'none';
+                }
+            }
+
+            selectModel(modelId, modelName) {
+                this.selectedModel = modelId;
+                
+                // Update selected state
+                document.querySelectorAll('.model-item').forEach(item => {
+                    item.classList.remove('selected');
+                    item.querySelector('.bi-check')?.remove();
+                });
+                
+                const selectedItem = document.querySelector(`[data-model="${modelId}"]`);
+                selectedItem.classList.add('selected');
+                
+                const checkIcon = document.createElement('i');
+                checkIcon.className = 'bi bi-check';
+                selectedItem.appendChild(checkIcon);
+                
+                console.log('Model selected:', modelId, modelName);
+            }
+
+            handleSettingToggle(setting, enabled) {
+                console.log(`Setting ${setting} ${enabled ? 'enabled' : 'disabled'}`);
+                
+                // Mock settings update
+                const mockSettings = {
+                    extendedThinking: enabled,
+                    webSearch: enabled
+                };
+                
+                console.log('Updated settings:', mockSettings);
+            }
+
+            simulateAPICall(message) {
+                this.typingIndicator.classList.add('show');
+                this.submitBtn.disabled = true;
+                
+                // Simulate API response delay
+                setTimeout(() => {
+                    this.typingIndicator.classList.remove('show');
+                    this.submitBtn.disabled = false;
+                    
+                    // Mock response
+                    console.log('Mock API Response:', {
+                        message: `Response to: "${message}"`,
+                        model: this.selectedModel,
+                        timestamp: new Date().toISOString(),
+                        tokens: Math.floor(Math.random() * 1000) + 100
+                    });
+                }, 2000 + Math.random() * 2000);
+            }
+
+            // Public methods for external integration
+            setValue(text) {
+                this.messageInput.value = text;
+                this.autoResize();
+                this.toggleSubmitButton();
+            }
+
+            getValue() {
+                return this.messageInput.value;
+            }
+
+            focus() {
+                this.messageInput.focus();
+            }
+
+            clear() {
+                this.messageInput.value = '';
+                this.autoResize();
+                this.toggleSubmitButton();
+                
+                // Clear attachments
+                const attachmentPreview = document.getElementById('attachmentPreview');
+                const attachmentGrid = document.getElementById('attachmentGrid');
+                attachmentGrid.innerHTML = '';
+                attachmentPreview.style.display = 'none';
+            }
+
+            getSelectedModel() {
+                return {
+                    id: this.selectedModel,
+                    name: this.selectedModel
+                };
+            }
+
+            getAttachments() {
+                const attachmentGrid = document.getElementById('attachmentGrid');
+                const attachments = [];
+                
+                Array.from(attachmentGrid.children).forEach(item => {
+                    const name = item.querySelector('.attachment-name').textContent;
+                    const icon = item.querySelector('.attachment-icon').textContent;
+                    attachments.push({ name, icon });
+                });
+                
+                return attachments;
+            }
+        }
+
+        // Initialize the control when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            window.claudeInput = new ClaudeInputControl();
+            
+            // Demo: Focus the input
+            setTimeout(() => {
+                window.claudeInput.focus();
+            }, 500);
+        });
+
+        // Export for external use
+        window.ClaudeInputControl = ClaudeInputControl;
+    </script>
+</body>
+</html>

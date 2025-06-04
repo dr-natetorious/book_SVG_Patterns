@@ -84,9 +84,16 @@ class ObjectFilterTransformer(TreeTransformer):
             # Fallback to string comparison for non-numeric ranges
             str_value = str(context).lower()
             str_low = str(node.low).lower() if str(node.low) != '*' else ''
-            str_high = str(node.high).lower() if str(node.high) != '*' else 'zzz'
+            str_high = str(node.high).lower() if str(node.high) != '*' else '\uffff'  # High unicode char
             
-            return str_low <= str_value <= str_high
+            if node.include_low and node.include_high:
+                return str_low <= str_value <= str_high
+            elif node.include_low and not node.include_high:
+                return str_low <= str_value < str_high
+            elif not node.include_low and node.include_high:
+                return str_low < str_value <= str_high
+            else:
+                return str_low < str_value < str_high
     
     def visit_fuzzy(self, node: Fuzzy, context=None):
         """Handle fuzzy matching with ~"""
@@ -149,7 +156,7 @@ class ObjectFilterTransformer(TreeTransformer):
     def _match_value(self, field_value: Any, target: str) -> bool:
         """Core value matching logic - handles 80% of cases"""
         if field_value is None:
-            return target.lower() in ['null', 'none', '']
+            return target.lower() in ['null', 'none', '', 'nil']
         
         field_str = str(field_value).lower()
         target_str = target.lower()
@@ -158,7 +165,338 @@ class ObjectFilterTransformer(TreeTransformer):
         if '*' in target_str or '?' in target_str:
             pattern = target_str.replace('*', '.*').replace('?', '.')
             try:
-                return bool(re.match(f'^{pattern}$', field_str))
+                return bool(re.match(f'^{pattern}
+    
+    def _convert_to_number(self, value: Any) -> float:
+        """Convert value to number for range comparisons"""
+        if isinstance(value, (int, float)):
+            return float(value)
+        
+        # Try to parse as number
+        str_val = str(value).strip()
+        
+        # Handle boolean-like values
+        if str_val.lower() in ['true', 'yes', '1', 'on']:
+            return 1.0
+        elif str_val.lower() in ['false', 'no', '0', 'off']:
+            return 0.0
+        
+        return float(str_val)
+    
+    def _fulltext_search(self, term: str) -> bool:
+        """Simple full-text search across object with recursion protection"""
+        term_lower = term.lower()
+        
+        def extract_strings(obj, depth=0, visited=None):
+            if visited is None:
+                visited = set()
+                
+            # Recursion and circular reference protection
+            if depth > 5:
+                return []
+            
+            obj_id = id(obj)
+            if obj_id in visited:
+                return []
+            
+            visited.add(obj_id)
+            
+            strings = []
+            try:
+                if isinstance(obj, str):
+                    strings.append(obj.lower())
+                elif isinstance(obj, dict):
+                    for v in list(obj.values())[:50]:  # Limit dict size
+                        strings.extend(extract_strings(v, depth + 1, visited))
+                elif isinstance(obj, (list, tuple)):
+                    for item in list(obj)[:50]:  # Limit list size
+                        strings.extend(extract_strings(item, depth + 1, visited))
+                elif hasattr(obj, '__dict__'):
+                    for v in list(obj.__dict__.values())[:50]:  # Limit object attrs
+                        strings.extend(extract_strings(v, depth + 1, visited))
+                else:
+                    strings.append(str(obj).lower())
+            except (AttributeError, TypeError, RecursionError):
+                pass  # Skip problematic objects
+            finally:
+                visited.discard(obj_id)
+            
+            return strings
+        
+        all_text = extract_strings(self.target_object)
+        return any(term_lower in text for text in all_text)
+    
+    def _fuzzy_match(self, text: str, target: str) -> bool:
+        """Simple fuzzy matching - contains or character overlap"""
+        text_lower = text.lower()
+        target_lower = target.lower()
+        
+        # Direct contains match
+        if target_lower in text_lower or text_lower in target_lower:
+            return True
+        
+        # Character overlap with more restrictive threshold
+        text_chars = set(text_lower)
+        target_chars = set(target_lower)
+        overlap = len(text_chars & target_chars)
+        total = len(text_chars | target_chars)
+        
+        return (overlap / total) > 0.75 if total > 0 else False
+    
+    def _fulltext_fuzzy_search(self, term: str) -> bool:
+        """Fuzzy search across all text with improved circular reference protection"""
+        def extract_strings(obj, depth=0, visited=None):
+            if visited is None:
+                visited = set()
+                
+            if depth > 5:
+                return []
+            
+            obj_id = id(obj)
+            if obj_id in visited:
+                return []
+            
+            visited.add(obj_id)
+            
+            strings = []
+            try:
+                if isinstance(obj, str):
+                    strings.append(obj.lower())
+                elif isinstance(obj, dict):
+                    for v in list(obj.values())[:50]:
+                        strings.extend(extract_strings(v, depth + 1, visited))
+                elif isinstance(obj, (list, tuple)):
+                    for item in list(obj)[:50]:
+                        strings.extend(extract_strings(item, depth + 1, visited))
+                elif hasattr(obj, '__dict__'):
+                    for v in list(obj.__dict__.values())[:50]:
+                        strings.extend(extract_strings(v, depth + 1, visited))
+                else:
+                    strings.append(str(obj).lower())
+            except (AttributeError, TypeError, RecursionError):
+                pass
+            finally:
+                visited.discard(obj_id)
+            
+            return strings
+        
+        all_text = extract_strings(self.target_object)
+        return any(self._fuzzy_match(text, term) for text in all_text)
+
+
+class SimpleLuceneFilter:
+    """
+    Simple Lucene object filter that focuses on the 80/20 rule.
+    Uses luqum's native capabilities for parsing and tree manipulation.
+    """
+    
+    def __init__(self):
+        # Use luqum's built-in resolver for unknown operations
+        self.operation_resolver = UnknownOperationResolver()
+    
+    def filter(self, objects: List[Any], query: str) -> List[Any]:
+        """
+        Filter objects using Lucene query syntax.
+        
+        Args:
+            objects: List of Python objects to filter (dicts, dataclasses, etc.)
+            query: Lucene query string
+            
+        Returns:
+            List of objects that match the query
+        """
+        if not query or not query.strip():
+            return objects
+        
+        try:
+            # Parse query using luqum's parser
+            ast = parser.parse(query)
+            
+            # Resolve unknown operations (implicit AND/OR)
+            resolved_ast = self.operation_resolver(ast)
+            
+            # Filter objects
+            results = []
+            for obj in objects:
+                transformer = ObjectFilterTransformer(obj)
+                
+                try:
+                    if transformer.visit(resolved_ast):
+                        results.append(obj)
+                except (AttributeError, TypeError, ValueError, RecursionError) as e:
+                    # Skip objects that cause specific errors during filtering
+                    continue
+            
+            return results
+            
+        except (Exception) as e:
+            # On any parsing or execution error, return empty list
+            # This handles malformed queries gracefully
+            return []
+    
+    def validate_query(self, query: str) -> Dict[str, Any]:
+        """
+        Validate a query and return information about it.
+        
+        Returns:
+            Dict with 'valid', 'error', and 'ast' keys
+        """
+        try:
+            ast = parser.parse(query)
+            resolved_ast = self.operation_resolver(ast)
+            
+            return {
+                'valid': True,
+                'error': None,
+                'ast': str(resolved_ast)
+            }
+        except Exception as e:
+            return {
+                'valid': False,
+                'error': str(e),
+                'ast': None
+            }
+
+
+# Example usage focusing on common use cases
+if __name__ == "__main__":
+    # Test data - common object structures
+    test_data = [
+        # Dictionaries (most common case)
+        {
+            "name": "web-server-01",
+            "cpu": 85.5,
+            "memory": 16,
+            "status": "running",
+            "tags": ["web", "production"],
+            "config": {"ssl": True, "port": 443},
+            "created": "2024-01-15"
+        },
+        {
+            "name": "db-server-01", 
+            "cpu": 45.2,
+            "memory": 32,
+            "status": "running",
+            "tags": ["database", "production"],
+            "config": {"ssl": False, "port": 5432},
+            "created": "2024-01-10"
+        },
+        {
+            "name": "cache-dev-01",
+            "cpu": 25.0,
+            "memory": 8,
+            "status": "stopped",
+            "tags": ["cache", "development"],
+            "config": {"ssl": False, "port": 6379},
+            "created": "2024-01-20"
+        }
+    ]
+    
+    # Dataclass example
+    from dataclasses import dataclass
+    
+    @dataclass
+    class Alert:
+        severity: str
+        message: str
+        resolved: bool
+        count: int
+    
+    alerts = [
+        Alert("critical", "Database connection failed", False, 5),
+        Alert("warning", "High CPU usage", True, 2),
+        Alert("info", "Backup completed", True, 1)
+    ]
+    
+    # Create filter
+    lucene_filter = SimpleLuceneFilter()
+    
+    # Test common query patterns (80% use cases)
+    test_queries = [
+        # Basic field matching
+        "status:running",
+        "cpu:85.5",
+        "tags:production",
+        
+        # Range queries
+        "cpu:[40 TO 90]",
+        "memory:[* TO 20]",
+        
+        # Boolean logic
+        "status:running AND tags:production",
+        "cpu:[60 TO *] OR memory:[30 TO *]",
+        "NOT status:stopped",
+        
+        # Wildcards
+        "name:*server*",
+        "name:web*",
+        
+        # Nested fields
+        "config.ssl:true",
+        "config.port:443",
+        
+        # Array access
+        "tags.0:web",
+        
+        # Full-text search
+        "database",
+        "production",
+        
+        # Fuzzy search
+        "databas~",
+        
+        # Complex queries
+        "(status:running AND tags:production) OR cpu:[80 TO *]",
+        "config.ssl:true AND NOT status:stopped"
+    ]
+    
+    print("=== Simple Lucene Object Filter Demo ===\n")
+    
+    print("Testing with dictionary objects:")
+    for query in test_queries[:10]:  # Test first 10 queries
+        try:
+            results = lucene_filter.filter(test_data, query)
+            names = [obj["name"] for obj in results]
+            print(f"Query: {query}")
+            print(f"Results: {names}")
+            print()
+        except Exception as e:
+            print(f"Query: {query}")
+            print(f"Error: {e}")
+            print()
+    
+    print("\nTesting with dataclass objects:")
+    dataclass_queries = ["severity:critical", "resolved:false", "count:[3 TO *]"]
+    
+    for query in dataclass_queries:
+        try:
+            results = lucene_filter.filter(alerts, query)
+            descriptions = [f"{alert.severity}: {alert.message}" for alert in results]
+            print(f"Query: {query}")
+            print(f"Results: {descriptions}")
+            print()
+        except Exception as e:
+            print(f"Query: {query}")
+            print(f"Error: {e}")
+            print()
+    
+    # Test query validation
+    print("Query validation examples:")
+    validation_tests = [
+        "status:running",
+        "invalid[[query",
+        "(status:running AND",
+        "field:[1 TO 10] OR other:value"
+    ]
+    
+    for query in validation_tests:
+        result = lucene_filter.validate_query(query)
+        print(f"Query: {query}")
+        print(f"Valid: {result['valid']}")
+        if result['error']:
+            print(f"Error: {result['error']}")
+        print()
+, field_str))
             except re.error:
                 return False
         
@@ -166,11 +504,12 @@ class ObjectFilterTransformer(TreeTransformer):
         if field_str == target_str:
             return True
         
-        # Boolean matching
-        if target_str in ['true', 'false']:
+        # Boolean matching - expanded to handle more variants
+        if target_str in ['true', 'false', 'yes', 'no', '1', '0', 'on', 'off']:
             try:
-                bool_val = str(field_value).lower() in ['true', '1', 'yes', 'on']
-                return bool_val == (target_str == 'true')
+                bool_val = field_str in ['true', '1', 'yes', 'on']
+                target_bool = target_str in ['true', '1', 'yes', 'on']
+                return bool_val == target_bool
             except:
                 pass
         

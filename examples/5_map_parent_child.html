@@ -1,0 +1,2128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accessible Item Assignment Interface</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.1/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        :root {
+            /* Color System - WCAG AA Compliant */
+            --primary-color: #0d6efd;
+            --success-color: #198754;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --light-gray: #f8f9fa;
+            --border-color: #dee2e6;
+            --text-muted: #6c757d;
+        }
+
+        body {
+            background-color: var(--light-gray);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        .assignment-container {
+            height: calc(100vh - 2rem);
+            max-height: 800px;
+        }
+
+        /* Unassigned Items Panel */
+        .unassigned-panel {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            background: linear-gradient(135deg, var(--primary-color), #0056b3);
+            color: white;
+            padding: 1rem;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .panel-title {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .panel-subtitle {
+            margin: 0.25rem 0 0 0;
+            font-size: 0.875rem;
+            opacity: 0.9;
+        }
+
+        .items-container {
+            padding: 1rem;
+            height: calc(100% - 80px);
+            overflow-y: auto;
+        }
+
+        /* Target Elements Panel */
+        .targets-panel {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .targets-header {
+            background: linear-gradient(135deg, var(--success-color), #146c43);
+            color: white;
+            padding: 1rem;
+            border-radius: 12px 12px 0 0;
+        }
+
+        /* Draggable Items */
+        .draggable-item {
+            background: white;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            cursor: grab;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .draggable-item:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 2px 8px rgba(13, 110, 253, 0.15);
+            transform: translateY(-1px);
+        }
+
+        .draggable-item:active {
+            cursor: grabbing;
+            transform: scale(0.98);
+        }
+
+        .draggable-item.dragging {
+            opacity: 0.6;
+            transform: rotate(3deg);
+            z-index: 1000;
+        }
+
+        .item-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--light-gray);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        .item-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .item-title {
+            font-weight: 600;
+            margin: 0 0 0.25rem 0;
+            font-size: 0.9rem;
+            color: #212529;
+        }
+
+        .item-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        /* Target Drop Zones */
+        .target-group {
+            background: white;
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .target-group.drag-over {
+            border-color: var(--success-color);
+            box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.1);
+            background: rgba(25, 135, 84, 0.02);
+        }
+
+        .target-header {
+            background: var(--light-gray);
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .target-title {
+            font-weight: 600;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .target-count {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .drop-zone {
+            min-height: 120px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            position: relative;
+        }
+
+        .drop-zone.empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: var(--text-muted);
+            font-style: italic;
+            border: 2px dashed var(--border-color);
+            border-radius: 6px;
+            margin: 0.5rem;
+            min-height: 80px;
+        }
+
+        .drop-zone.empty:before {
+            content: "Drop items here";
+            font-size: 0.875rem;
+        }
+
+        /* Assigned Items */
+        .assigned-item {
+            background: rgba(25, 135, 84, 0.05);
+            border: 1px solid rgba(25, 135, 84, 0.2);
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.2s ease;
+        }
+
+        .assigned-item:hover {
+            background: rgba(25, 135, 84, 0.1);
+            border-color: var(--success-color);
+        }
+
+        .assigned-content {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex: 1;
+        }
+
+        .assigned-title {
+            font-weight: 500;
+            margin: 0;
+            font-size: 0.875rem;
+        }
+
+        .remove-btn {
+            background: none;
+            border: none;
+            color: var(--danger-color);
+            padding: 0.25rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            opacity: 0.7;
+        }
+
+        .remove-btn:hover {
+            background: rgba(220, 53, 69, 0.1);
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        /* Search and Filter */
+        .search-container {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.5rem 1rem 0.5rem 2.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 0.875rem;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+
+        /* Statistics */
+        .stats-bar {
+            background: white;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0;
+            color: var(--primary-color);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Action Buttons */
+        .actions-bar {
+            padding: 0 1rem 1rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .action-btn {
+            flex: 1;
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.875rem;
+        }
+
+        .action-btn:hover {
+            background: var(--light-gray);
+        }
+
+        .action-btn.primary {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .action-btn.primary:hover {
+            background: #0056b3;
+        }
+
+        /* Accessibility Enhancements */
+        
+        /* High Contrast Mode Support */
+        @media (forced-colors: active) {
+            .draggable-item,
+            .target-group,
+            .assigned-item {
+                border: 2px solid ButtonText;
+            }
+            
+            .draggable-item:hover,
+            .target-group.drag-over {
+                border: 3px solid Highlight;
+            }
+            
+            .item-icon,
+            .target-count {
+                background: ButtonFace;
+                color: ButtonText;
+            }
+        }
+
+        /* Reduced Motion Support */
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+            
+            .draggable-item.dragging {
+                transform: none;
+            }
+        }
+
+        /* Focus Management */
+        .draggable-item:focus,
+        .assigned-item:focus,
+        .target-group:focus {
+            outline: 3px solid var(--primary-color);
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+
+        .draggable-item:focus-visible,
+        .assigned-item:focus-visible {
+            outline: 3px solid var(--primary-color);
+            outline-offset: 2px;
+        }
+
+        /* Keyboard Navigation Indicators */
+        .keyboard-nav-active .draggable-item:focus,
+        .keyboard-nav-active .assigned-item:focus,
+        .keyboard-nav-active .target-group:focus {
+            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.25);
+        }
+
+        /* Multi-select Support */
+        .draggable-item.selected {
+            background: rgba(13, 110, 253, 0.1);
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.25);
+        }
+
+        .multi-select-info {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary-color);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            z-index: 1001;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .multi-select-info.show {
+            opacity: 1;
+        }
+
+        /* Undo/Redo Button Styles */
+        .undo-redo-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 0.5rem;
+            z-index: 1000;
+        }
+
+        .undo-btn,
+        .redo-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: none;
+            background: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .undo-btn:hover,
+        .redo-btn:hover {
+            background: #0056b3;
+            transform: scale(1.05);
+        }
+
+        .undo-btn:disabled,
+        .redo-btn:disabled {
+            background: var(--text-muted);
+            cursor: not-allowed;
+            transform: none;
+            opacity: 0.6;
+        }
+
+        .undo-btn:focus,
+        .redo-btn:focus {
+            outline: 3px solid rgba(13, 110, 253, 0.5);
+            outline-offset: 2px;
+        }
+
+        /* Screen Reader Only Content */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        /* Live Region for Announcements */
+        .live-region {
+            position: absolute;
+            left: -10000px;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+        }
+
+        /* Skip Link */
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 6px;
+            background: var(--primary-color);
+            color: white;
+            padding: 8px;
+            text-decoration: none;
+            border-radius: 4px;
+            z-index: 2000;
+        }
+
+        .skip-link:focus {
+            top: 6px;
+        }
+
+        /* Keyboard Help Modal */
+        .keyboard-help {
+            background: rgba(0, 0, 0, 0.8);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .keyboard-help.show {
+            display: flex;
+        }
+
+        .keyboard-help-content {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .keyboard-shortcut {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .keyboard-shortcut:last-child {
+            border-bottom: none;
+        }
+
+        .shortcut-key {
+            background: var(--light-gray);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.875rem;
+            border: 1px solid var(--border-color);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .assignment-container {
+                height: auto;
+            }
+            
+            .unassigned-panel,
+            .targets-panel {
+                margin-bottom: 1rem;
+            }
+            
+            .items-container {
+                height: 400px;
+            }
+        }
+
+        /* Custom Scrollbar */
+        .items-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .items-container::-webkit-scrollbar-track {
+            background: var(--light-gray);
+            border-radius: 3px;
+        }
+
+        .items-container::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 3px;
+        }
+
+        .items-container::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <!-- Skip Link for Keyboard Navigation -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    
+    <!-- Live Region for Screen Reader Announcements -->
+    <div aria-live="polite" aria-atomic="true" class="live-region" id="liveRegion"></div>
+    <div aria-live="assertive" aria-atomic="true" class="live-region" id="alertRegion"></div>
+
+    <!-- Multi-select Information -->
+    <div class="multi-select-info" id="multiSelectInfo" role="status" aria-live="polite">
+        <span id="multiSelectCount">0</span> items selected
+    </div>
+
+    <!-- Keyboard Help Modal -->
+    <div class="keyboard-help" id="keyboardHelp" role="dialog" aria-labelledby="keyboardHelpTitle" aria-modal="true">
+        <div class="keyboard-help-content">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 id="keyboardHelpTitle">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" aria-label="Close help" onclick="toggleKeyboardHelp()"></button>
+            </div>
+            
+            <div class="keyboard-shortcuts">
+                <div class="keyboard-shortcut">
+                    <span>Navigate items</span>
+                    <span class="shortcut-key">↑ ↓ ← →</span>
+                </div>
+                <div class="keyboard-shortcut">
+                    <span>Select/deselect item</span>
+                    <span class="shortcut-key">Space</span>
+                </div>
+                <div class="keyboard-shortcut">
+                    <span>Multi-select</span>
+                    <span class="shortcut-key">Ctrl + Click</span>
+                </div>
+                <div class="keyboard-shortcut">
+                    <span>Select all</span>
+                    <span class="shortcut-key">Ctrl + A</span>
+                </div>
+                <div class="keyboard-shortcut">
+                    <span>Assign selected items</span>
+                    <span class="shortcut-key">Enter</span>
+                </div>
+                <div class="keyboard-shortcut">
+                    <span>Delete/remove assignment</span>
+                    <span class="shortcut-key">Delete</span>
+                </div>
+                <div class="keyboard-shortcut">
+                    <span>Undo</span>
+                    <span class="shortcut-key">Ctrl + Z</span>
+                </div>
+                <div class="keyboard-shortcut">
+                    <span>Redo</span>
+                    <span class="shortcut-key">Ctrl + Y</span>
+                </div>
+                <div class="keyboard-shortcut">
+                    <span>Search</span>
+                    <span class="shortcut-key">Ctrl + F</span>
+                </div>
+                <div class="keyboard-shortcut">
+                    <span>Show this help</span>
+                    <span class="shortcut-key">F1 or ?</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid p-3" id="main-content">
+        <!-- Statistics Bar -->
+        <div class="stats-bar" role="region" aria-label="Assignment statistics">
+            <div class="stat-item">
+                <div class="stat-number" id="unassignedCount" aria-label="12 unassigned items">12</div>
+                <div class="stat-label">Unassigned</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="assignedCount" aria-label="8 assigned items">8</div>
+                <div class="stat-label">Assigned</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="totalTargets" aria-label="4 target groups">4</div>
+                <div class="stat-label">Target Groups</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="completionRate" aria-label="67% completion rate">67%</div>
+                <div class="stat-label">Complete</div>
+            </div>
+        </div>
+
+        <div class="row assignment-container">
+            <!-- Unassigned Items Panel -->
+            <div class="col-lg-4 col-md-5">
+                <div class="unassigned-panel" role="region" aria-labelledby="unassigned-title">
+                    <div class="panel-header">
+                        <h5 class="panel-title" id="unassigned-title">
+                            <i class="bi bi-inbox" aria-hidden="true"></i>
+                            Unassigned Items
+                        </h5>
+                        <p class="panel-subtitle">Drag items to assign them to target groups</p>
+                    </div>
+                    
+                    <div class="items-container">
+                        <!-- Search -->
+                        <div class="search-container">
+                            <label for="searchInput" class="sr-only">Search unassigned items</label>
+                            <input type="text" 
+                                   class="search-input" 
+                                   placeholder="Search items..." 
+                                   id="searchInput"
+                                   aria-describedby="searchHelp"
+                                   autocomplete="off">
+                            <i class="bi bi-search search-icon" aria-hidden="true"></i>
+                            <div id="searchHelp" class="sr-only">Type to filter items by name or description</div>
+                        </div>
+
+                        <!-- Unassigned Items -->
+                        <div id="unassignedItems" role="listbox" aria-label="Unassigned items" aria-multiselectable="true">
+                            <div class="draggable-item" 
+                                 draggable="true" 
+                                 data-item-id="1"
+                                 role="option"
+                                 tabindex="0"
+                                 aria-selected="false"
+                                 aria-describedby="item-1-desc">
+                                <div class="item-icon">
+                                    <i class="bi bi-file-earmark" aria-hidden="true"></i>
+                                </div>
+                                <div class="item-content">
+                                    <h6 class="item-title">User Authentication Module</h6>
+                                    <p class="item-meta" id="item-1-desc">Priority: High • Created: 2024-01-15</p>
+                                </div>
+                            </div>
+
+                            <div class="draggable-item" 
+                                 draggable="true" 
+                                 data-item-id="2"
+                                 role="option"
+                                 tabindex="-1"
+                                 aria-selected="false"
+                                 aria-describedby="item-2-desc">
+                                <div class="item-icon">
+                                    <i class="bi bi-database" aria-hidden="true"></i>
+                                </div>
+                                <div class="item-content">
+                                    <h6 class="item-title">Database Migration Script</h6>
+                                    <p class="item-meta" id="item-2-desc">Priority: Medium • Created: 2024-01-14</p>
+                                </div>
+                            </div>
+
+                            <div class="draggable-item" 
+                                 draggable="true" 
+                                 data-item-id="3"
+                                 role="option"
+                                 tabindex="-1"
+                                 aria-selected="false"
+                                 aria-describedby="item-3-desc">
+                                <div class="item-icon">
+                                    <i class="bi bi-palette" aria-hidden="true"></i>
+                                </div>
+                                <div class="item-content">
+                                    <h6 class="item-title">UI Component Library</h6>
+                                    <p class="item-meta" id="item-3-desc">Priority: Low • Created: 2024-01-13</p>
+                                </div>
+                            </div>
+
+                            <div class="draggable-item" 
+                                 draggable="true" 
+                                 data-item-id="4"
+                                 role="option"
+                                 tabindex="-1"
+                                 aria-selected="false"
+                                 aria-describedby="item-4-desc">
+                                <div class="item-icon">
+                                    <i class="bi bi-shield-check" aria-hidden="true"></i>
+                                </div>
+                                <div class="item-content">
+                                    <h6 class="item-title">Security Audit</h6>
+                                    <p class="item-meta" id="item-4-desc">Priority: Critical • Created: 2024-01-12</p>
+                                </div>
+                            </div>
+
+                            <div class="draggable-item" 
+                                 draggable="true" 
+                                 data-item-id="5"
+                                 role="option"
+                                 tabindex="-1"
+                                 aria-selected="false"
+                                 aria-describedby="item-5-desc">
+                                <div class="item-icon">
+                                    <i class="bi bi-graph-up" aria-hidden="true"></i>
+                                </div>
+                                <div class="item-content">
+                                    <h6 class="item-title">Analytics Dashboard</h6>
+                                    <p class="item-meta" id="item-5-desc">Priority: Medium • Created: 2024-01-11</p>
+                                </div>
+                            </div>
+
+                            <div class="draggable-item" 
+                                 draggable="true" 
+                                 data-item-id="6"
+                                 role="option"
+                                 tabindex="-1"
+                                 aria-selected="false"
+                                 aria-describedby="item-6-desc">
+                                <div class="item-icon">
+                                    <i class="bi bi-envelope" aria-hidden="true"></i>
+                                </div>
+                                <div class="item-content">
+                                    <h6 class="item-title">Email Notification System</h6>
+                                    <p class="item-meta" id="item-6-desc">Priority: Low • Created: 2024-01-10</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="actions-bar">
+                        <button class="action-btn" 
+                                onclick="clearAllAssignments()"
+                                aria-describedby="clearHelp">
+                            <i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Clear All
+                        </button>
+                        <div id="clearHelp" class="sr-only">Remove all current assignments</div>
+                        
+                        <button class="action-btn primary" 
+                                onclick="saveAssignments()"
+                                aria-describedby="saveHelp">
+                            <i class="bi bi-check-lg" aria-hidden="true"></i> Save
+                        </button>
+                        <div id="saveHelp" class="sr-only">Save current assignments to server</div>
+                        
+                        <button class="action-btn" 
+                                onclick="toggleKeyboardHelp()"
+                                aria-describedby="helpButtonDesc">
+                            <i class="bi bi-question-circle" aria-hidden="true"></i> Help
+                        </button>
+                        <div id="helpButtonDesc" class="sr-only">Show keyboard shortcuts and help</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Target Groups Panel -->
+            <div class="col-lg-8 col-md-7">
+                <div class="targets-panel" role="region" aria-labelledby="targets-title">
+                    <div class="targets-header">
+                        <h5 class="panel-title" id="targets-title">
+                            <i class="bi bi-bullseye" aria-hidden="true"></i>
+                            Target Groups
+                        </h5>
+                        <p class="panel-subtitle">Drop items into appropriate categories</p>
+                    </div>
+
+                    <div class="items-container">
+                        <!-- Target Group 1 -->
+                        <div class="target-group" 
+                             data-target-id="team-alpha"
+                             role="region"
+                             aria-labelledby="target-alpha-title"
+                             tabindex="0">
+                            <div class="target-header">
+                                <h6 class="target-title" id="target-alpha-title">
+                                    <i class="bi bi-people-fill" style="color: #0d6efd;" aria-hidden="true"></i>
+                                    Team Alpha - Frontend
+                                </h6>
+                                <span class="target-count" id="count-team-alpha" aria-label="2 items assigned">2</span>
+                            </div>
+                            <div class="drop-zone" 
+                                 id="dropzone-team-alpha"
+                                 role="list"
+                                 aria-label="Items assigned to Team Alpha"
+                                 aria-describedby="alpha-instructions">
+                                <div id="alpha-instructions" class="sr-only">
+                                    Drop items here to assign them to Team Alpha - Frontend
+                                </div>
+                                
+                                <div class="assigned-item" role="listitem">
+                                    <div class="assigned-content">
+                                        <i class="bi bi-check-circle-fill" style="color: var(--success-color);" aria-hidden="true"></i>
+                                        <h6 class="assigned-title">Landing Page Redesign</h6>
+                                    </div>
+                                    <button class="remove-btn" 
+                                            onclick="removeAssignment(this)"
+                                            aria-label="Remove Landing Page Redesign from Team Alpha">
+                                        <i class="bi bi-x" aria-hidden="true"></i>
+                                    </button>
+                                </div>
+                                <div class="assigned-item" role="listitem">
+                                    <div class="assigned-content">
+                                        <i class="bi bi-check-circle-fill" style="color: var(--success-color);" aria-hidden="true"></i>
+                                        <h6 class="assigned-title">Mobile Responsive Updates</h6>
+                                    </div>
+                                    <button class="remove-btn" 
+                                            onclick="removeAssignment(this)"
+                                            aria-label="Remove Mobile Responsive Updates from Team Alpha">
+                                        <i class="bi bi-x" aria-hidden="true"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Target Group 2 -->
+                        <div class="target-group" 
+                             data-target-id="team-beta"
+                             role="region"
+                             aria-labelledby="target-beta-title"
+                             tabindex="0">
+                            <div class="target-header">
+                                <h6 class="target-title" id="target-beta-title">
+                                    <i class="bi bi-server" style="color: #198754;" aria-hidden="true"></i>
+                                    Team Beta - Backend
+                                </h6>
+                                <span class="target-count" id="count-team-beta" aria-label="3 items assigned">3</span>
+                            </div>
+                            <div class="drop-zone" 
+                                 id="dropzone-team-beta"
+                                 role="list"
+                                 aria-label="Items assigned to Team Beta"
+                                 aria-describedby="beta-instructions">
+                                <div id="beta-instructions" class="sr-only">
+                                    Drop items here to assign them to Team Beta - Backend
+                                </div>
+                                
+                                <div class="assigned-item" role="listitem">
+                                    <div class="assigned-content">
+                                        <i class="bi bi-check-circle-fill" style="color: var(--success-color);" aria-hidden="true"></i>
+                                        <h6 class="assigned-title">API Rate Limiting</h6>
+                                    </div>
+                                    <button class="remove-btn" 
+                                            onclick="removeAssignment(this)"
+                                            aria-label="Remove API Rate Limiting from Team Beta">
+                                        <i class="bi bi-x" aria-hidden="true"></i>
+                                    </button>
+                                </div>
+                                <div class="assigned-item" role="listitem">
+                                    <div class="assigned-content">
+                                        <i class="bi bi-check-circle-fill" style="color: var(--success-color);" aria-hidden="true"></i>
+                                        <h6 class="assigned-title">Database Optimization</h6>
+                                    </div>
+                                    <button class="remove-btn" 
+                                            onclick="removeAssignment(this)"
+                                            aria-label="Remove Database Optimization from Team Beta">
+                                        <i class="bi bi-x" aria-hidden="true"></i>
+                                    </button>
+                                </div>
+                                <div class="assigned-item" role="listitem">
+                                    <div class="assigned-content">
+                                        <i class="bi bi-check-circle-fill" style="color: var(--success-color);" aria-hidden="true"></i>
+                                        <h6 class="assigned-title">Cache Implementation</h6>
+                                    </div>
+                                    <button class="remove-btn" 
+                                            onclick="removeAssignment(this)"
+                                            aria-label="Remove Cache Implementation from Team Beta">
+                                        <i class="bi bi-x" aria-hidden="true"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Target Group 3 -->
+                        <div class="target-group" 
+                             data-target-id="team-gamma"
+                             role="region"
+                             aria-labelledby="target-gamma-title"
+                             tabindex="0">
+                            <div class="target-header">
+                                <h6 class="target-title" id="target-gamma-title">
+                                    <i class="bi bi-shield-shaded" style="color: #dc3545;" aria-hidden="true"></i>
+                                    Team Gamma - Security
+                                </h6>
+                                <span class="target-count" id="count-team-gamma" aria-label="1 item assigned">1</span>
+                            </div>
+                            <div class="drop-zone" 
+                                 id="dropzone-team-gamma"
+                                 role="list"
+                                 aria-label="Items assigned to Team Gamma"
+                                 aria-describedby="gamma-instructions">
+                                <div id="gamma-instructions" class="sr-only">
+                                    Drop items here to assign them to Team Gamma - Security
+                                </div>
+                                
+                                <div class="assigned-item" role="listitem">
+                                    <div class="assigned-content">
+                                        <i class="bi bi-check-circle-fill" style="color: var(--success-color);" aria-hidden="true"></i>
+                                        <h6 class="assigned-title">Penetration Testing</h6>
+                                    </div>
+                                    <button class="remove-btn" 
+                                            onclick="removeAssignment(this)"
+                                            aria-label="Remove Penetration Testing from Team Gamma">
+                                        <i class="bi bi-x" aria-hidden="true"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Target Group 4 -->
+                        <div class="target-group" 
+                             data-target-id="team-delta"
+                             role="region"
+                             aria-labelledby="target-delta-title"
+                             tabindex="0">
+                            <div class="target-header">
+                                <h6 class="target-title" id="target-delta-title">
+                                    <i class="bi bi-laptop" style="color: #6f42c1;" aria-hidden="true"></i>
+                                    Team Delta - DevOps
+                                </h6>
+                                <span class="target-count" id="count-team-delta" aria-label="0 items assigned">0</span>
+                            </div>
+                            <div class="drop-zone empty" 
+                                 id="dropzone-team-delta"
+                                 role="list"
+                                 aria-label="Items assigned to Team Delta - currently empty"
+                                 aria-describedby="delta-instructions">
+                                <div id="delta-instructions" class="sr-only">
+                                    Drop items here to assign them to Team Delta - DevOps. This area is currently empty.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Undo/Redo Controls -->
+    <div class="undo-redo-container">
+        <button class="undo-btn" 
+                id="undoBtn" 
+                title="Undo last action (Ctrl+Z)" 
+                aria-label="Undo last action"
+                disabled>
+            <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
+        </button>
+        <button class="redo-btn" 
+                id="redoBtn" 
+                title="Redo last undone action (Ctrl+Y)" 
+                aria-label="Redo last undone action"
+                disabled>
+            <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+        </button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+    <script>
+        class AssignmentInterface {
+            constructor() {
+                this.draggedElement = null;
+                this.assignments = new Map(); // targetId -> Set of itemIds
+                this.itemData = new Map(); // itemId -> item data
+                this.selectedItems = new Set(); // Multi-select support
+                this.focusedElement = null;
+                this.actionHistory = []; // Undo/redo history
+                this.historyIndex = -1; // Current position in history
+                this.maxHistorySize = 50;
+                this.isKeyboardNavActive = false;
+                
+                this.initializeData();
+                this.initializeEventListeners();
+                this.initializeAccessibility();
+                this.updateStatistics();
+                this.saveState('Initial state');
+            }
+
+            initializeData() {
+                // Initialize assignment data structure
+                const targetGroups = ['team-alpha', 'team-beta', 'team-gamma', 'team-delta'];
+                targetGroups.forEach(targetId => {
+                    this.assignments.set(targetId, new Set());
+                });
+
+                // Pre-populate some assignments (matching the HTML)
+                this.assignments.get('team-alpha').add('assigned-1').add('assigned-2');
+                this.assignments.get('team-beta').add('assigned-3').add('assigned-4').add('assigned-5');
+                this.assignments.get('team-gamma').add('assigned-6');
+
+                // Store item data for search and filtering
+                const unassignedItems = document.querySelectorAll('.draggable-item');
+                unassignedItems.forEach(item => {
+                    const itemId = item.dataset.itemId;
+                    const title = item.querySelector('.item-title').textContent;
+                    const meta = item.querySelector('.item-meta').textContent;
+                    this.itemData.set(itemId, { title, meta, element: item });
+                });
+            }
+
+            initializeEventListeners() {
+                // Drag and drop for unassigned items
+                this.initializeDragAndDrop();
+                
+                // Search functionality
+                this.initializeSearch();
+                
+                // Button handlers
+                this.initializeButtons();
+                
+                // Keyboard navigation and shortcuts
+                this.initializeKeyboardHandlers();
+                
+                // Multi-select support
+                this.initializeMultiSelect();
+                
+                // Undo/Redo functionality
+                this.initializeUndoRedo();
+            }
+
+            initializeAccessibility() {
+                // Add keyboard navigation indicator to body
+                document.addEventListener('keydown', () => {
+                    if (!document.body.classList.contains('keyboard-nav-active')) {
+                        document.body.classList.add('keyboard-nav-active');
+                        this.isKeyboardNavActive = true;
+                    }
+                });
+
+                document.addEventListener('mousedown', () => {
+                    document.body.classList.remove('keyboard-nav-active');
+                    this.isKeyboardNavActive = false;
+                });
+
+                // Enhanced focus management
+                this.setupFocusManagement();
+                
+                // Screen reader announcements
+                this.setupScreenReaderSupport();
+            }
+
+            setupFocusManagement() {
+                // Roving tabindex for draggable items
+                const items = document.querySelectorAll('.draggable-item');
+                items.forEach((item, index) => {
+                    item.tabIndex = index === 0 ? 0 : -1;
+                });
+
+                // Focus trap for modal
+                this.setupModalFocusTrap();
+            }
+
+            setupModalFocusTrap() {
+                const modal = document.getElementById('keyboardHelp');
+                const focusableElements = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+                
+                modal.addEventListener('keydown', (e) => {
+                    if (e.key === 'Tab') {
+                        const focusableContent = modal.querySelectorAll(focusableElements);
+                        const firstFocusable = focusableContent[0];
+                        const lastFocusable = focusableContent[focusableContent.length - 1];
+
+                        if (e.shiftKey) {
+                            if (document.activeElement === firstFocusable) {
+                                lastFocusable.focus();
+                                e.preventDefault();
+                            }
+                        } else {
+                            if (document.activeElement === lastFocusable) {
+                                firstFocusable.focus();
+                                e.preventDefault();
+                            }
+                        }
+                    }
+                });
+            }
+
+            setupScreenReaderSupport() {
+                // Create live regions if they don't exist
+                if (!document.getElementById('liveRegion')) {
+                    const liveRegion = document.createElement('div');
+                    liveRegion.id = 'liveRegion';
+                    liveRegion.setAttribute('aria-live', 'polite');
+                    liveRegion.setAttribute('aria-atomic', 'true');
+                    liveRegion.className = 'live-region';
+                    document.body.appendChild(liveRegion);
+                }
+
+                if (!document.getElementById('alertRegion')) {
+                    const alertRegion = document.createElement('div');
+                    alertRegion.id = 'alertRegion';
+                    alertRegion.setAttribute('aria-live', 'assertive');
+                    alertRegion.setAttribute('aria-atomic', 'true');
+                    alertRegion.className = 'live-region';
+                    document.body.appendChild(alertRegion);
+                }
+            }
+
+            announceToScreenReader(message, urgent = false) {
+                const regionId = urgent ? 'alertRegion' : 'liveRegion';
+                const region = document.getElementById(regionId);
+                if (region) {
+                    region.textContent = message;
+                    // Clear after announcement
+                    setTimeout(() => {
+                        region.textContent = '';
+                    }, 1000);
+                }
+            }
+
+            initializeKeyboardHandlers() {
+                document.addEventListener('keydown', (e) => {
+                    // Global shortcuts
+                    if (e.ctrlKey || e.metaKey) {
+                        switch (e.key.toLowerCase()) {
+                            case 'z':
+                                e.preventDefault();
+                                this.undo();
+                                break;
+                            case 'y':
+                                e.preventDefault();
+                                this.redo();
+                                break;
+                            case 'a':
+                                if (e.target.closest('#unassignedItems')) {
+                                    e.preventDefault();
+                                    this.selectAll();
+                                }
+                                break;
+                            case 'f':
+                                e.preventDefault();
+                                document.getElementById('searchInput').focus();
+                                break;
+                        }
+                    }
+
+                    // Help shortcuts
+                    if (e.key === 'F1' || e.key === '?') {
+                        e.preventDefault();
+                        this.toggleKeyboardHelp();
+                    }
+
+                    // Escape key handling
+                    if (e.key === 'Escape') {
+                        this.handleEscape();
+                    }
+
+                    // Navigation within items
+                    if (e.target.closest('.draggable-item') || e.target.closest('.target-group')) {
+                        this.handleItemNavigation(e);
+                    }
+                });
+            }
+
+            initializeMultiSelect() {
+                // Click handlers for multi-select
+                document.addEventListener('click', (e) => {
+                    const item = e.target.closest('.draggable-item');
+                    if (item) {
+                        if (e.ctrlKey || e.metaKey) {
+                            e.preventDefault();
+                            this.toggleItemSelection(item);
+                        } else if (!this.selectedItems.has(item.dataset.itemId)) {
+                            this.clearSelection();
+                            this.selectItem(item);
+                        }
+                    } else if (!e.target.closest('.multi-select-info')) {
+                        this.clearSelection();
+                    }
+                });
+
+                // Space bar for selection
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === ' ' && e.target.classList.contains('draggable-item')) {
+                        e.preventDefault();
+                        this.toggleItemSelection(e.target);
+                    }
+                });
+            }
+
+            initializeUndoRedo() {
+                const undoBtn = document.getElementById('undoBtn');
+                const redoBtn = document.getElementById('redoBtn');
+
+                undoBtn.addEventListener('click', () => this.undo());
+                redoBtn.addEventListener('click', () => this.redo());
+
+                this.updateUndoRedoButtons();
+            }
+
+            initializeDragAndDrop() {
+                // Add drag event listeners to all draggable items
+                const draggableItems = document.querySelectorAll('.draggable-item');
+                draggableItems.forEach(item => {
+                    item.addEventListener('dragstart', (e) => this.handleDragStart(e));
+                    item.addEventListener('dragend', (e) => this.handleDragEnd(e));
+                });
+
+                // Add drop event listeners to all drop zones
+                const dropZones = document.querySelectorAll('.drop-zone');
+                dropZones.forEach(zone => {
+                    zone.addEventListener('dragover', (e) => this.handleDragOver(e));
+                    zone.addEventListener('drop', (e) => this.handleDrop(e));
+                    zone.addEventListener('dragenter', (e) => this.handleDragEnter(e));
+                    zone.addEventListener('dragleave', (e) => this.handleDragLeave(e));
+                });
+            }
+
+            initializeSearch() {
+                const searchInput = document.getElementById('searchInput');
+                searchInput.addEventListener('input', (e) => {
+                    this.filterItems(e.target.value);
+                });
+            }
+
+            initializeButtons() {
+                // Remove assignment buttons (delegated event handling)
+                document.addEventListener('click', (e) => {
+                    if (e.target.closest('.remove-btn')) {
+                        this.removeAssignment(e.target.closest('.remove-btn'));
+                    }
+                });
+            }
+
+            handleDragStart(e) {
+                this.draggedElement = e.target;
+                e.target.classList.add('dragging');
+                
+                // Set drag data
+                e.dataTransfer.setData('text/plain', e.target.dataset.itemId);
+                e.dataTransfer.effectAllowed = 'move';
+
+                // Add visual feedback to all drop zones
+                document.querySelectorAll('.target-group').forEach(group => {
+                    group.style.transition = 'all 0.3s ease';
+                });
+            }
+
+            handleDragEnd(e) {
+                e.target.classList.remove('dragging');
+                this.draggedElement = null;
+
+                // Remove visual feedback from all drop zones
+                document.querySelectorAll('.target-group').forEach(group => {
+                    group.classList.remove('drag-over');
+                    group.style.transition = '';
+                });
+            }
+
+            handleDragOver(e) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+            }
+
+            handleDragEnter(e) {
+                e.preventDefault();
+                const targetGroup = e.target.closest('.target-group');
+                if (targetGroup) {
+                    targetGroup.classList.add('drag-over');
+                }
+            }
+
+            handleDragLeave(e) {
+                // Only remove drag-over if we're actually leaving the target group
+                const targetGroup = e.target.closest('.target-group');
+                if (targetGroup && !targetGroup.contains(e.relatedTarget)) {
+                    targetGroup.classList.remove('drag-over');
+                }
+            }
+
+            handleDrop(e) {
+                e.preventDefault();
+                
+                const itemId = e.dataTransfer.getData('text/plain');
+                const dropZone = e.target.closest('.drop-zone');
+                const targetGroup = e.target.closest('.target-group');
+                
+                if (dropZone && targetGroup && this.draggedElement) {
+                    const targetId = targetGroup.dataset.targetId;
+                    this.assignItem(itemId, targetId);
+                }
+
+                // Clean up visual feedback
+                document.querySelectorAll('.target-group').forEach(group => {
+                    group.classList.remove('drag-over');
+                });
+            }
+
+            handleItemNavigation(e) {
+                const currentItem = e.target.closest('.draggable-item') || e.target.closest('.target-group');
+                if (!currentItem) return;
+
+                let nextItem = null;
+
+                switch (e.key) {
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        nextItem = this.getNextItem(currentItem, 'down');
+                        break;
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        nextItem = this.getNextItem(currentItem, 'up');
+                        break;
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        if (currentItem.classList.contains('draggable-item')) {
+                            // Move focus to first target group
+                            nextItem = document.querySelector('.target-group');
+                        } else {
+                            nextItem = this.getNextItem(currentItem, 'right');
+                        }
+                        break;
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        if (currentItem.classList.contains('target-group')) {
+                            // Move focus to first unassigned item
+                            nextItem = document.querySelector('.draggable-item');
+                        } else {
+                            nextItem = this.getNextItem(currentItem, 'left');
+                        }
+                        break;
+                    case 'Enter':
+                        e.preventDefault();
+                        if (currentItem.classList.contains('draggable-item') && this.selectedItems.size > 0) {
+                            this.showTargetSelection();
+                        }
+                        break;
+                    case 'Delete':
+                    case 'Backspace':
+                        e.preventDefault();
+                        if (currentItem.classList.contains('target-group')) {
+                            this.removeLastAssignmentFromTarget(currentItem.dataset.targetId);
+                        }
+                        break;
+                }
+
+                if (nextItem) {
+                    this.setItemFocus(nextItem);
+                }
+            }
+
+            getNextItem(currentItem, direction) {
+                const container = currentItem.closest('#unassignedItems') || currentItem.closest('.items-container');
+                const items = Array.from(container.querySelectorAll('.draggable-item, .target-group'));
+                const currentIndex = items.indexOf(currentItem);
+
+                switch (direction) {
+                    case 'down':
+                    case 'right':
+                        return items[currentIndex + 1] || items[0];
+                    case 'up':
+                    case 'left':
+                        return items[currentIndex - 1] || items[items.length - 1];
+                    default:
+                        return null;
+                }
+            }
+
+            setItemFocus(item) {
+                // Update tabindex
+                document.querySelectorAll('.draggable-item, .target-group').forEach(el => {
+                    el.tabIndex = -1;
+                });
+                item.tabIndex = 0;
+                item.focus();
+                this.focusedElement = item;
+            }
+
+            selectItem(item) {
+                const itemId = item.dataset.itemId;
+                this.selectedItems.add(itemId);
+                item.classList.add('selected');
+                item.setAttribute('aria-selected', 'true');
+                this.updateMultiSelectInfo();
+                this.announceToScreenReader(`Selected ${item.querySelector('.item-title').textContent}`);
+            }
+
+            deselectItem(item) {
+                const itemId = item.dataset.itemId;
+                this.selectedItems.delete(itemId);
+                item.classList.remove('selected');
+                item.setAttribute('aria-selected', 'false');
+                this.updateMultiSelectInfo();
+                this.announceToScreenReader(`Deselected ${item.querySelector('.item-title').textContent}`);
+            }
+
+            toggleItemSelection(item) {
+                if (this.selectedItems.has(item.dataset.itemId)) {
+                    this.deselectItem(item);
+                } else {
+                    this.selectItem(item);
+                }
+            }
+
+            selectAll() {
+                const items = document.querySelectorAll('.draggable-item');
+                items.forEach(item => this.selectItem(item));
+                this.announceToScreenReader(`Selected all ${items.length} items`);
+            }
+
+            clearSelection() {
+                document.querySelectorAll('.draggable-item.selected').forEach(item => {
+                    this.deselectItem(item);
+                });
+            }
+
+            updateMultiSelectInfo() {
+                const info = document.getElementById('multiSelectInfo');
+                const count = document.getElementById('multiSelectCount');
+                
+                if (this.selectedItems.size > 0) {
+                    count.textContent = this.selectedItems.size;
+                    info.classList.add('show');
+                } else {
+                    info.classList.remove('show');
+                }
+            }
+
+            showTargetSelection() {
+                if (this.selectedItems.size === 0) return;
+
+                // For now, show a simple prompt - in a real app this could be a modal
+                const targetNames = {
+                    'team-alpha': 'Team Alpha - Frontend',
+                    'team-beta': 'Team Beta - Backend', 
+                    'team-gamma': 'Team Gamma - Security',
+                    'team-delta': 'Team Delta - DevOps'
+                };
+
+                const targetList = Object.entries(targetNames)
+                    .map(([id, name], index) => `${index + 1}. ${name}`)
+                    .join('\n');
+
+                const choice = prompt(`Assign ${this.selectedItems.size} selected items to:\n\n${targetList}\n\nEnter number (1-4):`);
+                
+                if (choice && choice >= 1 && choice <= 4) {
+                    const targetIds = Object.keys(targetNames);
+                    const targetId = targetIds[choice - 1];
+                    this.assignSelectedItems(targetId);
+                }
+            }
+
+            assignSelectedItems(targetId) {
+                const selectedElements = Array.from(this.selectedItems).map(id => 
+                    document.querySelector(`[data-item-id="${id}"]`)
+                ).filter(el => el);
+
+                selectedElements.forEach(element => {
+                    this.draggedElement = element;
+                    this.assignItem(element.dataset.itemId, targetId);
+                });
+
+                this.clearSelection();
+                this.announceToScreenReader(`Assigned ${selectedElements.length} items to ${this.getTargetName(targetId)}`);
+            }
+
+            removeLastAssignmentFromTarget(targetId) {
+                const dropZone = document.getElementById(`dropzone-${targetId}`);
+                const lastAssignment = dropZone.querySelector('.assigned-item:last-child');
+                
+                if (lastAssignment) {
+                    const removeBtn = lastAssignment.querySelector('.remove-btn');
+                    if (removeBtn) {
+                        this.removeAssignment(removeBtn);
+                    }
+                }
+            }
+
+            handleEscape() {
+                // Close modal if open
+                const modal = document.getElementById('keyboardHelp');
+                if (modal.classList.contains('show')) {
+                    this.toggleKeyboardHelp();
+                    return;
+                }
+
+                // Clear selection
+                if (this.selectedItems.size > 0) {
+                    this.clearSelection();
+                    return;
+                }
+
+                // Clear search
+                const searchInput = document.getElementById('searchInput');
+                if (searchInput.value) {
+                    searchInput.value = '';
+                    this.filterItems('');
+                    return;
+                }
+            }
+
+            // Undo/Redo System
+            saveState(description) {
+                // Remove any redo history when new action is performed
+                this.actionHistory = this.actionHistory.slice(0, this.historyIndex + 1);
+
+                // Create state snapshot
+                const state = {
+                    description,
+                    timestamp: Date.now(),
+                    assignments: new Map(),
+                    unassignedItems: Array.from(document.querySelectorAll('.draggable-item')).map(item => ({
+                        id: item.dataset.itemId,
+                        title: item.querySelector('.item-title').textContent,
+                        meta: item.querySelector('.item-meta').textContent
+                    }))
+                };
+
+                // Deep copy assignments
+                this.assignments.forEach((itemSet, targetId) => {
+                    state.assignments.set(targetId, new Set(itemSet));
+                });
+
+                this.actionHistory.push(state);
+                this.historyIndex++;
+
+                // Limit history size
+                if (this.actionHistory.length > this.maxHistorySize) {
+                    this.actionHistory.shift();
+                    this.historyIndex--;
+                }
+
+                this.updateUndoRedoButtons();
+            }
+
+            undo() {
+                if (this.historyIndex > 0) {
+                    this.historyIndex--;
+                    this.restoreState(this.actionHistory[this.historyIndex]);
+                    this.announceToScreenReader(`Undone: ${this.actionHistory[this.historyIndex + 1]?.description || 'last action'}`, true);
+                }
+            }
+
+            redo() {
+                if (this.historyIndex < this.actionHistory.length - 1) {
+                    this.historyIndex++;
+                    this.restoreState(this.actionHistory[this.historyIndex]);
+                    this.announceToScreenReader(`Redone: ${this.actionHistory[this.historyIndex].description}`, true);
+                }
+            }
+
+            restoreState(state) {
+                // Clear current assignments
+                document.querySelectorAll('.assigned-item').forEach(item => item.remove());
+                document.querySelectorAll('.drop-zone').forEach(zone => {
+                    if (zone.children.length === 0) {
+                        zone.classList.add('empty');
+                    }
+                });
+
+                // Restore assignments
+                this.assignments.clear();
+                state.assignments.forEach((itemSet, targetId) => {
+                    this.assignments.set(targetId, new Set(itemSet));
+                    
+                    itemSet.forEach(itemId => {
+                        const dropZone = document.getElementById(`dropzone-${targetId}`);
+                        dropZone.classList.remove('empty');
+                        
+                        // Create assigned item (simplified for undo/redo)
+                        const assignedItem = document.createElement('div');
+                        assignedItem.className = 'assigned-item';
+                        assignedItem.dataset.itemId = itemId;
+                        assignedItem.innerHTML = `
+                            <div class="assigned-content">
+                                <i class="bi bi-check-circle-fill" style="color: var(--success-color);" aria-hidden="true"></i>
+                                <h6 class="assigned-title">Restored Item ${itemId}</h6>
+                            </div>
+                            <button class="remove-btn" aria-label="Remove assignment">
+                                <i class="bi bi-x" aria-hidden="true"></i>
+                            </button>
+                        `;
+                        dropZone.appendChild(assignedItem);
+                    });
+                });
+
+                // Update counts and statistics
+                Object.keys(this.assignments).forEach(targetId => {
+                    this.updateTargetCount(targetId);
+                });
+                this.updateStatistics();
+                this.updateUndoRedoButtons();
+            }
+
+            updateUndoRedoButtons() {
+                const undoBtn = document.getElementById('undoBtn');
+                const redoBtn = document.getElementById('redoBtn');
+
+                undoBtn.disabled = this.historyIndex <= 0;
+                redoBtn.disabled = this.historyIndex >= this.actionHistory.length - 1;
+
+                // Update tooltips with action descriptions
+                if (this.historyIndex > 0) {
+                    const lastAction = this.actionHistory[this.historyIndex];
+                    undoBtn.title = `Undo: ${lastAction.description} (Ctrl+Z)`;
+                } else {
+                    undoBtn.title = 'Undo (Ctrl+Z)';
+                }
+
+                if (this.historyIndex < this.actionHistory.length - 1) {
+                    const nextAction = this.actionHistory[this.historyIndex + 1];
+                    redoBtn.title = `Redo: ${nextAction.description} (Ctrl+Y)`;
+                } else {
+                    redoBtn.title = 'Redo (Ctrl+Y)';
+                }
+            }
+
+            assignItem(itemId, targetId) {
+                const draggedItem = this.draggedElement;
+                if (!draggedItem) return;
+
+                // Save state for undo
+                this.saveState(`Assigned ${draggedItem.querySelector('.item-title').textContent} to ${this.getTargetName(targetId)}`);
+
+                // Remove from unassigned list
+                draggedItem.remove();
+
+                // Add to target group assignments
+                this.assignments.get(targetId).add(itemId);
+
+                // Create assigned item element
+                const assignedItem = this.createAssignedItem(draggedItem, itemId);
+                
+                // Add to drop zone
+                const dropZone = document.getElementById(`dropzone-${targetId}`);
+                dropZone.classList.remove('empty');
+                dropZone.appendChild(assignedItem);
+
+                // Update count and statistics
+                this.updateTargetCount(targetId);
+                this.updateStatistics();
+
+                // Accessibility announcements
+                const itemTitle = draggedItem.querySelector('.item-title').textContent;
+                this.announceToScreenReader(`${itemTitle} assigned to ${this.getTargetName(targetId)}`);
+
+                // Show success feedback
+                this.showToast(`Item assigned to ${this.getTargetName(targetId)}`, 'success');
+            }
+
+            createAssignedItem(originalItem, itemId) {
+                const title = originalItem.querySelector('.item-title').textContent;
+                
+                const assignedItem = document.createElement('div');
+                assignedItem.className = 'assigned-item';
+                assignedItem.dataset.itemId = itemId;
+                assignedItem.setAttribute('role', 'listitem');
+                
+                assignedItem.innerHTML = `
+                    <div class="assigned-content">
+                        <i class="bi bi-check-circle-fill" style="color: var(--success-color);" aria-hidden="true"></i>
+                        <h6 class="assigned-title">${title}</h6>
+                    </div>
+                    <button class="remove-btn" title="Remove assignment" aria-label="Remove ${title} from assignment">
+                        <i class="bi bi-x" aria-hidden="true"></i>
+                    </button>
+                `;
+
+                // Add animation
+                assignedItem.style.opacity = '0';
+                assignedItem.style.transform = 'translateY(-10px)';
+                
+                setTimeout(() => {
+                    assignedItem.style.transition = 'all 0.3s ease';
+                    assignedItem.style.opacity = '1';
+                    assignedItem.style.transform = 'translateY(0)';
+                }, 50);
+
+                return assignedItem;
+            }
+
+            removeAssignment(button) {
+                const assignedItem = button.closest('.assigned-item');
+                const itemId = assignedItem.dataset.itemId;
+                const dropZone = assignedItem.closest('.drop-zone');
+                const targetGroup = assignedItem.closest('.target-group');
+                const targetId = targetGroup.dataset.targetId;
+
+                // Save state for undo
+                const itemTitle = assignedItem.querySelector('.assigned-title').textContent;
+                this.saveState(`Removed ${itemTitle} from ${this.getTargetName(targetId)}`);
+
+                // Remove from assignments
+                this.assignments.get(targetId).delete(itemId);
+
+                // Animate removal
+                assignedItem.style.transition = 'all 0.3s ease';
+                assignedItem.style.opacity = '0';
+                assignedItem.style.transform = 'translateX(20px)';
+
+                setTimeout(() => {
+                    assignedItem.remove();
+                    
+                    // Check if drop zone is now empty
+                    const remainingItems = dropZone.querySelectorAll('.assigned-item');
+                    if (remainingItems.length === 0) {
+                        dropZone.classList.add('empty');
+                    }
+
+                    // Restore item to unassigned list
+                    this.restoreToUnassigned(itemId, itemTitle);
+                    
+                    // Update counts and statistics
+                    this.updateTargetCount(targetId);
+                    this.updateStatistics();
+
+                    // Accessibility announcement
+                    this.announceToScreenReader(`${itemTitle} removed from ${this.getTargetName(targetId)} and returned to unassigned items`);
+                }, 300);
+
+                this.showToast('Assignment removed', 'warning');
+            }
+
+            restoreToUnassigned(itemId, itemTitle = null) {
+                // For demo purposes, create a new unassigned item
+                // In a real app, you'd restore from stored data
+                const unassignedContainer = document.getElementById('unassignedItems');
+                
+                const restoredItem = document.createElement('div');
+                restoredItem.className = 'draggable-item';
+                restoredItem.draggable = true;
+                restoredItem.dataset.itemId = itemId;
+                restoredItem.setAttribute('role', 'option');
+                restoredItem.setAttribute('aria-selected', 'false');
+                restoredItem.tabIndex = -1;
+                
+                // Use stored item data or create generic data
+                const itemData = this.itemData.get(itemId) || {
+                    title: itemTitle || 'Restored Item',
+                    meta: 'Priority: Medium • Restored'
+                };
+
+                restoredItem.innerHTML = `
+                    <div class="item-icon">
+                        <i class="bi bi-arrow-return-left" aria-hidden="true"></i>
+                    </div>
+                    <div class="item-content">
+                        <h6 class="item-title">${itemData.title}</h6>
+                        <p class="item-meta">${itemData.meta}</p>
+                    </div>
+                `;
+
+                // Add drag events
+                restoredItem.addEventListener('dragstart', (e) => this.handleDragStart(e));
+                restoredItem.addEventListener('dragend', (e) => this.handleDragEnd(e));
+
+                // Insert at the beginning with animation
+                restoredItem.style.opacity = '0';
+                restoredItem.style.transform = 'translateY(-10px)';
+                unassignedContainer.insertBefore(restoredItem, unassignedContainer.firstChild);
+
+                setTimeout(() => {
+                    restoredItem.style.transition = 'all 0.3s ease';
+                    restoredItem.style.opacity = '1';
+                    restoredItem.style.transform = 'translateY(0)';
+                }, 50);
+            }
+
+            filterItems(searchTerm) {
+                const items = document.querySelectorAll('.draggable-item');
+                const term = searchTerm.toLowerCase();
+
+                items.forEach(item => {
+                    const title = item.querySelector('.item-title').textContent.toLowerCase();
+                    const meta = item.querySelector('.item-meta').textContent.toLowerCase();
+                    
+                    if (title.includes(term) || meta.includes(term)) {
+                        item.style.display = 'flex';
+                        item.style.opacity = '1';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+
+                // Show "no results" message if needed
+                const visibleItems = Array.from(items).filter(item => item.style.display !== 'none');
+                this.toggleNoResultsMessage(visibleItems.length === 0 && searchTerm.length > 0);
+            }
+
+            toggleNoResultsMessage(show) {
+                let noResultsMsg = document.getElementById('noResultsMessage');
+                
+                if (show && !noResultsMsg) {
+                    noResultsMsg = document.createElement('div');
+                    noResultsMsg.id = 'noResultsMessage';
+                    noResultsMsg.className = 'text-center text-muted p-3';
+                    noResultsMsg.innerHTML = `
+                        <i class="bi bi-search"></i><br>
+                        No items found<br>
+                        <small>Try a different search term</small>
+                    `;
+                    document.getElementById('unassignedItems').appendChild(noResultsMsg);
+                } else if (!show && noResultsMsg) {
+                    noResultsMsg.remove();
+                }
+            }
+
+            updateTargetCount(targetId) {
+                const count = this.assignments.get(targetId).size;
+                const countElement = document.getElementById(`count-${targetId}`);
+                if (countElement) {
+                    countElement.textContent = count;
+                    countElement.setAttribute('aria-label', `${count} items assigned`);
+                    
+                    // Add pulse animation for feedback
+                    countElement.style.transform = 'scale(1.2)';
+                    setTimeout(() => {
+                        countElement.style.transform = 'scale(1)';
+                    }, 200);
+                }
+            }
+
+            updateStatistics() {
+                const unassignedCount = document.querySelectorAll('#unassignedItems .draggable-item').length;
+                const totalAssigned = Array.from(this.assignments.values())
+                    .reduce((sum, set) => sum + set.size, 0);
+                const totalTargets = this.assignments.size;
+                const completionRate = totalAssigned > 0 ? 
+                    Math.round((totalAssigned / (totalAssigned + unassignedCount)) * 100) : 0;
+
+                // Update statistics with animation
+                this.animateStatUpdate('unassignedCount', unassignedCount);
+                this.animateStatUpdate('assignedCount', totalAssigned);
+                this.animateStatUpdate('totalTargets', totalTargets);
+                this.animateStatUpdate('completionRate', completionRate + '%');
+            }
+
+            animateStatUpdate(elementId, newValue) {
+                const element = document.getElementById(elementId);
+                if (element) {
+                    element.style.transform = 'scale(1.1)';
+                    element.textContent = newValue;
+                    
+                    // Update aria-label for screen readers
+                    element.setAttribute('aria-label', `${newValue} ${elementId.replace('Count', '').replace('Rate', '% completion rate')}`);
+                    
+                    setTimeout(() => {
+                        element.style.transform = 'scale(1)';
+                    }, 200);
+                }
+            }
+
+            getTargetName(targetId) {
+                const targetNames = {
+                    'team-alpha': 'Team Alpha',
+                    'team-beta': 'Team Beta', 
+                    'team-gamma': 'Team Gamma',
+                    'team-delta': 'Team Delta'
+                };
+                return targetNames[targetId] || 'Unknown Target';
+            }
+
+            showToast(message, type = 'info') {
+                // Create and show a simple toast notification
+                const toast = document.createElement('div');
+                toast.className = `alert alert-${type} position-fixed`;
+                toast.style.cssText = `
+                    top: 20px; right: 20px; z-index: 9999; 
+                    opacity: 0; transition: all 0.3s ease;
+                    min-width: 250px;
+                `;
+                toast.innerHTML = `
+                    <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i>
+                    ${message}
+                `;
+
+                document.body.appendChild(toast);
+
+                // Animate in
+                setTimeout(() => {
+                    toast.style.opacity = '1';
+                    toast.style.transform = 'translateY(0)';
+                }, 50);
+
+                // Remove after 3 seconds
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateY(-20px)';
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
+            }
+
+            // Public methods for external API
+            clearAllAssignments() {
+                // Get all assigned items
+                const assignedItems = document.querySelectorAll('.assigned-item');
+                
+                if (assignedItems.length === 0) {
+                    this.showToast('No assignments to clear', 'info');
+                    return;
+                }
+
+                // Confirm action
+                if (!confirm('Are you sure you want to clear all assignments?')) {
+                    return;
+                }
+
+                // Save state for undo
+                this.saveState('Cleared all assignments');
+
+                // Remove all assignments with staggered animation
+                assignedItems.forEach((item, index) => {
+                    setTimeout(() => {
+                        const button = item.querySelector('.remove-btn');
+                        if (button) {
+                            // Skip saving state for individual removals during bulk clear
+                            const originalSaveState = this.saveState;
+                            this.saveState = () => {}; // Temporarily disable
+                            this.removeAssignment(button);
+                            this.saveState = originalSaveState; // Restore
+                        }
+                    }, index * 100);
+                });
+
+                this.announceToScreenReader('All assignments cleared', true);
+                this.showToast('All assignments cleared', 'warning');
+            }
+
+            toggleKeyboardHelp() {
+                const modal = document.getElementById('keyboardHelp');
+                const isVisible = modal.classList.contains('show');
+                
+                if (isVisible) {
+                    modal.classList.remove('show');
+                    modal.setAttribute('aria-hidden', 'true');
+                    // Return focus to previously focused element
+                    if (this.focusedElement) {
+                        this.focusedElement.focus();
+                    }
+                } else {
+                    modal.classList.add('show');
+                    modal.setAttribute('aria-hidden', 'false');
+                    // Focus first focusable element in modal
+                    const closeBtn = modal.querySelector('.btn-close');
+                    if (closeBtn) closeBtn.focus();
+                    this.announceToScreenReader('Keyboard shortcuts dialog opened');
+                }
+            }
+
+            saveAssignments() {
+                // Collect all assignment data
+                const assignmentData = {};
+                this.assignments.forEach((itemSet, targetId) => {
+                    assignmentData[targetId] = Array.from(itemSet);
+                });
+
+                // In a real app, this would send to your backend
+                console.log('Saving assignments:', assignmentData);
+                
+                // Mock API call
+                this.showToast('Saving assignments...', 'info');
+                this.announceToScreenReader('Saving assignments to server');
+                
+                setTimeout(() => {
+                    this.showToast('Assignments saved successfully!', 'success');
+                    this.announceToScreenReader('Assignments saved successfully');
+                    
+                    // You could also show more detailed feedback
+                    const totalAssignments = Object.values(assignmentData)
+                        .reduce((sum, arr) => sum + arr.length, 0);
+                    
+                    console.log(`Saved ${totalAssignments} assignments across ${Object.keys(assignmentData).length} targets`);
+                }, 1000);
+            }
+
+            // Utility method to get current state
+            getAssignmentState() {
+                const state = {};
+                this.assignments.forEach((itemSet, targetId) => {
+                    state[targetId] = Array.from(itemSet);
+                });
+                return state;
+            }
+
+            // Method to load assignments from external data
+            loadAssignments(assignmentData) {
+                // Clear current assignments
+                this.clearAllAssignments();
+
+                // Load new assignments
+                Object.entries(assignmentData).forEach(([targetId, itemIds]) => {
+                    itemIds.forEach(itemId => {
+                        // This would need to be adapted based on your data structure
+                        console.log(`Loading assignment: ${itemId} -> ${targetId}`);
+                    });
+                });
+            }
+
+            // Enhanced accessibility methods
+            getAccessibilityReport() {
+                return {
+                    totalItems: document.querySelectorAll('.draggable-item').length,
+                    totalAssignments: document.querySelectorAll('.assigned-item').length,
+                    focusableElements: document.querySelectorAll('[tabindex], button, input, select, textarea, [href]').length,
+                    ariaLabels: document.querySelectorAll('[aria-label]').length,
+                    ariaDescribedBy: document.querySelectorAll('[aria-describedby]').length,
+                    liveRegions: document.querySelectorAll('[aria-live]').length,
+                    headings: document.querySelectorAll('h1, h2, h3, h4, h5, h6').length,
+                    landmarks: document.querySelectorAll('[role="region"], [role="main"], [role="navigation"], [role="complementary"]').length
+                };
+            }
+        }
+
+        // Initialize the assignment interface when DOM is loaded
+        let assignmentInterface;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            assignmentInterface = new AssignmentInterface();
+            console.log('Assignment Interface initialized with full accessibility support');
+            
+            // Log accessibility report
+            console.log('Accessibility Report:', assignmentInterface.getAccessibilityReport());
+        });
+
+        // Global functions for button handlers (keeping backward compatibility)
+        function clearAllAssignments() {
+            if (assignmentInterface) {
+                assignmentInterface.clearAllAssignments();
+            }
+        }
+
+        function saveAssignments() {
+            if (assignmentInterface) {
+                assignmentInterface.saveAssignments();
+            }
+        }
+
+        function removeAssignment(button) {
+            if (assignmentInterface) {
+                assignmentInterface.removeAssignment(button);
+            }
+        }
+
+        function toggleKeyboardHelp() {
+            if (assignmentInterface) {
+                assignmentInterface.toggleKeyboardHelp();
+            }
+        }
+
+        // Export for external use
+        window.AssignmentInterface = AssignmentInterface;
+    </script>
+</body>
+</html>

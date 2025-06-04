@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lucene Filter Control</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.1/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        .filter-control {
+            position: relative;
+        }
+
+        .filter-input {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            padding-right: 40px;
+        }
+
+        .suggestions-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-top: none;
+            border-radius: 0 0 0.375rem 0.375rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            z-index: 1000;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .suggestion-item {
+            padding: 0.75rem;
+            cursor: pointer;
+            border-bottom: 1px solid #f8f9fa;
+        }
+
+        .suggestion-item:hover,
+        .suggestion-item.active {
+            background-color: #e9ecef;
+        }
+
+        .syntax-field { color: #0d6efd; font-weight: bold; }
+        .syntax-operator { color: #198754; font-weight: bold; }
+        .syntax-string { color: #6f42c1; }
+        .syntax-number { color: #fd7e14; }
+        .syntax-keyword { color: #20c997; font-weight: bold; }
+
+        .query-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .query-chip {
+            background: #e9ecef;
+            border: 1px solid #adb5bd;
+            border-radius: 1rem;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .filter-validation {
+            min-height: 1.5rem;
+            font-size: 0.875rem;
+        }
+
+        .syntax-example {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            padding: 0.5rem;
+            font-family: 'Courier New', monospace;
+            margin: 0.25rem 0;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container my-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-funnel"></i>
+                            Lucene Filter Control
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Query Chips -->
+                        <div class="query-chips" id="queryChips"></div>
+
+                        <!-- Main Filter Input -->
+                        <div class="filter-control mb-3">
+                            <label for="filterInput" class="form-label">Search Query</label>
+                            <div class="position-relative">
+                                <input type="text" 
+                                       class="form-control filter-input" 
+                                       id="filterInput"
+                                       placeholder="e.g., status:active AND (cpu:[80 TO *] OR priority:high)"
+                                       autocomplete="off">
+                                <div class="suggestions-dropdown" id="suggestionsDropdown"></div>
+                            </div>
+                        </div>
+
+                        <!-- Validation Messages -->
+                        <div class="filter-validation" id="validationMessage"></div>
+
+                        <!-- Quick Filters -->
+                        <div class="mb-3">
+                            <label class="form-label">Quick Filters</label>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" data-filter="status:active">
+                                    <i class="bi bi-check-circle"></i> Active Items
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" data-filter="priority:high">
+                                    <i class="bi bi-exclamation-triangle"></i> High Priority
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" data-filter="created:[now-7d TO *]">
+                                    <i class="bi bi-calendar"></i> Last 7 Days
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" data-filter="NOT archived:true">
+                                    <i class="bi bi-archive"></i> Not Archived
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-flex gap-2 mb-3">
+                            <button type="button" class="btn btn-primary" id="searchBtn">
+                                <i class="bi bi-search"></i> Search
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="clearBtn">
+                                <i class="bi bi-arrow-clockwise"></i> Clear
+                            </button>
+                            <button type="button" class="btn btn-outline-info" id="helpBtn">
+                                <i class="bi bi-question-circle"></i> Help
+                            </button>
+                        </div>
+
+                        <!-- Results Preview -->
+                        <div id="resultsPreview" class="alert alert-info" style="display: none;">
+                            <strong>Query Preview:</strong>
+                            <div id="queryPreview" class="mt-2"></div>
+                        </div>
+
+                        <!-- Help Panel -->
+                        <div class="collapse" id="helpPanel">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Lucene Query Syntax Guide</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6>Basic Syntax</h6>
+                                            <div class="syntax-example">field:value</div>
+                                            <div class="syntax-example">"exact phrase"</div>
+                                            <div class="syntax-example">wildcard*</div>
+                                            <div class="syntax-example">fuzzy~</div>
+                                            
+                                            <h6 class="mt-3">Boolean Operators</h6>
+                                            <div class="syntax-example">term1 AND term2</div>
+                                            <div class="syntax-example">term1 OR term2</div>
+                                            <div class="syntax-example">NOT term</div>
+                                            <div class="syntax-example">(group OR terms)</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6>Range Queries</h6>
+                                            <div class="syntax-example">[1 TO 10]</div>
+                                            <div class="syntax-example">{1 TO 10}</div>
+                                            <div class="syntax-example">[1 TO *]</div>
+                                            <div class="syntax-example">[* TO 10]</div>
+                                            
+                                            <h6 class="mt-3">Type-Aware Examples</h6>
+                                            <div class="syntax-example">status:active <span class="text-muted">(enum)</span></div>
+                                            <div class="syntax-example">cpu:[80 TO *] <span class="text-muted">(numeric)</span></div>
+                                            <div class="syntax-example">enabled:true <span class="text-muted">(boolean)</span></div>
+                                            <div class="syntax-example">created:[now-7d TO *] <span class="text-muted">(datetime)</span></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Field schema from Pydantic models
+        const fieldSchema = {
+            status: {
+                type: 'enum',
+                description: 'Current operational status of the server',
+                enum_values: ['active', 'inactive', 'maintenance', 'error'],
+                required: true
+            },
+            priority: {
+                type: 'enum',
+                description: 'Business priority level for this item',
+                enum_values: ['critical', 'high', 'medium', 'low'],
+                required: false
+            },
+            cpu: {
+                type: 'float',
+                description: 'CPU utilization percentage (0-100)',
+                minimum: 0,
+                maximum: 100,
+                example: 85.5
+            },
+            memory: {
+                type: 'integer',
+                description: 'Memory allocation in gigabytes',
+                minimum: 1,
+                maximum: 1024,
+                example: 16
+            },
+            created: {
+                type: 'datetime',
+                description: 'ISO timestamp when the resource was created',
+                example: '2024-01-15T10:30:00Z'
+            },
+            name: {
+                type: 'string',
+                description: 'Unique identifier name for the server',
+                example: 'web-server-01'
+            },
+            enabled: {
+                type: 'boolean',
+                description: 'Whether the feature is currently enabled'
+            },
+            environment: {
+                type: 'enum',
+                description: 'Deployment environment classification',
+                enum_values: ['production', 'staging', 'development', 'test']
+            },
+            archived: {
+                type: 'boolean',
+                description: 'Whether this item has been archived'
+            }
+        };
+
+        // Global state
+        let currentSuggestionIndex = -1;
+        let chips = [];
+
+        // DOM elements
+        const filterInput = document.getElementById('filterInput');
+        const suggestionsDropdown = document.getElementById('suggestionsDropdown');
+        const validationMessage = document.getElementById('validationMessage');
+        const queryChips = document.getElementById('queryChips');
+        const queryPreview = document.getElementById('queryPreview');
+        const resultsPreview = document.getElementById('resultsPreview');
+
+        // Event listeners
+        filterInput.addEventListener('input', handleInput);
+        filterInput.addEventListener('keydown', handleKeydown);
+        filterInput.addEventListener('focus', showSuggestions);
+        filterInput.addEventListener('blur', () => setTimeout(hideSuggestions, 150));
+
+        document.getElementById('searchBtn').addEventListener('click', executeSearch);
+        document.getElementById('clearBtn').addEventListener('click', clearFilter);
+        document.getElementById('helpBtn').addEventListener('click', toggleHelp);
+
+        // Quick filter buttons
+        document.querySelectorAll('[data-filter]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                addQuickFilter(this.dataset.filter);
+            });
+        });
+
+        function handleInput() {
+            const value = filterInput.value;
+            updateSyntaxHighlighting(value);
+            validateQuery(value);
+            updateSuggestions(value);
+            updateQueryPreview(value);
+        }
+
+        function handleKeydown(e) {
+            const suggestions = suggestionsDropdown.querySelectorAll('.suggestion-item');
+            
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                currentSuggestionIndex = Math.min(currentSuggestionIndex + 1, suggestions.length - 1);
+                highlightSuggestion();
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                currentSuggestionIndex = Math.max(currentSuggestionIndex - 1, -1);
+                highlightSuggestion();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (currentSuggestionIndex >= 0 && suggestions[currentSuggestionIndex]) {
+                    applySuggestion(suggestions[currentSuggestionIndex].dataset.replacement);
+                } else {
+                    executeSearch();
+                }
+            } else if (e.key === 'Escape') {
+                hideSuggestions();
+            }
+        }
+
+        function updateSyntaxHighlighting(query) {
+            // Simple syntax highlighting for preview
+            updateQueryPreview(query);
+        }
+
+        function highlightLuceneSyntax(query) {
+            if (!query) return '';
+            
+            let highlighted = query;
+            
+            // Field names
+            highlighted = highlighted.replace(/\b(\w+):/g, '<span class="syntax-field">$1</span>:');
+            
+            // Boolean operators
+            highlighted = highlighted.replace(/\b(AND|OR|NOT)\b/g, '<span class="syntax-operator">$1</span>');
+            
+            // Quoted strings
+            highlighted = highlighted.replace(/"([^"]*)"/g, '<span class="syntax-string">"$1"</span>');
+            
+            // Numbers
+            highlighted = highlighted.replace(/\b(\d+\.?\d*)\b/g, '<span class="syntax-number">$1</span>');
+            
+            // Keywords
+            highlighted = highlighted.replace(/\b(TO|true|false|now)\b/g, '<span class="syntax-keyword">$1</span>');
+            
+            return highlighted;
+        }
+
+        function validateQuery(query) {
+            if (!query.trim()) {
+                showValidation('Enter a search query', 'info');
+                return;
+            }
+
+            // Basic validation
+            const errors = findSyntaxErrors(query);
+            if (errors.length > 0) {
+                showValidation(errors[0], 'danger');
+            } else {
+                showValidation('✓ Valid Lucene syntax', 'success');
+            }
+        }
+
+        function findSyntaxErrors(query) {
+            const errors = [];
+            
+            // Check parentheses
+            let parenCount = 0;
+            for (let char of query) {
+                if (char === '(') parenCount++;
+                if (char === ')') parenCount--;
+                if (parenCount < 0) {
+                    errors.push('Unmatched closing parenthesis');
+                    break;
+                }
+            }
+            if (parenCount > 0) {
+                errors.push('Unmatched opening parenthesis');
+            }
+            
+            return errors;
+        }
+
+        function showValidation(message, type) {
+            validationMessage.className = `filter-validation text-${type}`;
+            validationMessage.textContent = message;
+        }
+
+        function updateSuggestions(query) {
+            const suggestions = generateSuggestions(query);
+            renderSuggestions(suggestions);
+        }
+
+        function generateSuggestions(query) {
+            const cursorPos = filterInput.selectionStart;
+            const beforeCursor = query.substring(0, cursorPos);
+            const lastWord = beforeCursor.split(/\s+/).pop();
+            const suggestions = [];
+
+            if (lastWord.includes(':')) {
+                // Value suggestions
+                const fieldPath = lastWord.split(':')[0];
+                const schema = fieldSchema[fieldPath];
+                
+                if (schema) {
+                    const typedSuggestions = getTypedSuggestions(schema);
+                    typedSuggestions.forEach(suggestion => {
+                        suggestions.push({
+                            text: suggestion.value,
+                            description: suggestion.description,
+                            type: suggestion.type,
+                            replacement: beforeCursor.replace(/[^:\s]*$/, '') + suggestion.value
+                        });
+                    });
+                }
+            } else if (beforeCursor.endsWith(' ')) {
+                // Operator suggestions
+                ['AND', 'OR', 'NOT'].forEach(op => {
+                    suggestions.push({
+                        text: op,
+                        description: getOperatorDescription(op),
+                        type: 'operator',
+                        replacement: beforeCursor + op + ' '
+                    });
+                });
+            } else {
+                // Field suggestions
+                Object.entries(fieldSchema)
+                    .filter(([field]) => field.toLowerCase().includes(lastWord.toLowerCase()))
+                    .slice(0, 6)
+                    .forEach(([field, schema]) => {
+                        suggestions.push({
+                            text: field + ':',
+                            description: schema.description,
+                            type: schema.type,
+                            replacement: beforeCursor.replace(/\w*$/, '') + field + ':'
+                        });
+                    });
+            }
+
+            return suggestions;
+        }
+
+        function getTypedSuggestions(schema) {
+            const suggestions = [];
+            
+            switch (schema.type) {
+                case 'enum':
+                    schema.enum_values.forEach(value => {
+                        suggestions.push({
+                            value: value,
+                            type: 'enum_value',
+                            description: `Valid enum value`
+                        });
+                    });
+                    break;
+                    
+                case 'boolean':
+                    suggestions.push(
+                        { value: 'true', type: 'boolean', description: 'Boolean true' },
+                        { value: 'false', type: 'boolean', description: 'Boolean false' }
+                    );
+                    break;
+                    
+                case 'integer':
+                case 'float':
+                    if (schema.minimum !== undefined && schema.maximum !== undefined) {
+                        suggestions.push(
+                            { value: `[${schema.minimum} TO ${schema.maximum}]`, type: 'range', description: 'Full range' },
+                            { value: `[${schema.minimum} TO *]`, type: 'range', description: 'Greater than minimum' }
+                        );
+                    }
+                    if (schema.example) {
+                        suggestions.push({
+                            value: schema.example.toString(),
+                            type: 'example',
+                            description: 'Example value'
+                        });
+                    }
+                    break;
+                    
+                case 'string':
+                    suggestions.push(
+                        { value: '*', type: 'wildcard', description: 'Match any value' },
+                        { value: 'prefix*', type: 'wildcard', description: 'Starts with prefix' }
+                    );
+                    break;
+                    
+                case 'datetime':
+                    suggestions.push(
+                        { value: '[now-1d TO *]', type: 'date_range', description: 'Last 24 hours' },
+                        { value: '[now-7d TO *]', type: 'date_range', description: 'Last 7 days' }
+                    );
+                    break;
+            }
+            
+            return suggestions;
+        }
+
+        function getOperatorDescription(op) {
+            const descriptions = {
+                'AND': 'Both conditions must be true',
+                'OR': 'Either condition must be true', 
+                'NOT': 'Exclude matching items'
+            };
+            return descriptions[op] || '';
+        }
+
+        function renderSuggestions(suggestions) {
+            if (suggestions.length === 0) {
+                hideSuggestions();
+                return;
+            }
+
+            suggestionsDropdown.innerHTML = suggestions.map((suggestion, index) => `
+                <div class="suggestion-item" 
+                     data-index="${index}"
+                     data-replacement="${suggestion.replacement}">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-${getSuggestionIcon(suggestion.type)} me-2"></i>
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center">
+                                <strong>${suggestion.text}</strong>
+                                <span class="badge bg-secondary ms-2">${suggestion.type}</span>
+                            </div>
+                            ${suggestion.description ? `<small class="text-muted">${suggestion.description}</small>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Add click handlers
+            suggestionsDropdown.querySelectorAll('.suggestion-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    applySuggestion(this.dataset.replacement);
+                });
+            });
+
+            showSuggestions();
+            currentSuggestionIndex = -1;
+        }
+
+        function getSuggestionIcon(type) {
+            const icons = {
+                'enum': 'list-ul',
+                'enum_value': 'check-circle',
+                'boolean': 'toggle-on',
+                'range': 'arrows-expand',
+                'wildcard': 'asterisk',
+                'example': 'lightbulb',
+                'date_range': 'calendar-range',
+                'operator': 'gear',
+                'string': 'type',
+                'integer': 'hash',
+                'float': 'hash',
+                'datetime': 'clock'
+            };
+            return icons[type] || 'chevron-right';
+        }
+
+        function highlightSuggestion() {
+            const suggestions = suggestionsDropdown.querySelectorAll('.suggestion-item');
+            suggestions.forEach((item, index) => {
+                item.classList.toggle('active', index === currentSuggestionIndex);
+            });
+        }
+
+        function applySuggestion(replacement) {
+            filterInput.value = replacement;
+            filterInput.focus();
+            hideSuggestions();
+            handleInput();
+        }
+
+        function showSuggestions() {
+            if (suggestionsDropdown.children.length > 0) {
+                suggestionsDropdown.style.display = 'block';
+            }
+        }
+
+        function hideSuggestions() {
+            suggestionsDropdown.style.display = 'none';
+            currentSuggestionIndex = -1;
+        }
+
+        function updateQueryPreview(query) {
+            if (query.trim()) {
+                queryPreview.innerHTML = `<code>${highlightLuceneSyntax(query)}</code>`;
+                resultsPreview.style.display = 'block';
+            } else {
+                resultsPreview.style.display = 'none';
+            }
+        }
+
+        function addQuickFilter(filter) {
+            const currentValue = filterInput.value;
+            const newValue = currentValue.trim() ? `${currentValue} AND ${filter}` : filter;
+            filterInput.value = newValue;
+            handleInput();
+        }
+
+        function clearFilter() {
+            filterInput.value = '';
+            chips = [];
+            renderChips();
+            handleInput();
+        }
+
+        function executeSearch() {
+            const query = filterInput.value.trim();
+            if (query) {
+                addChip(query);
+                alert(`Executing search: ${query}\n\nThis would send to your Python backend:\n\nPOST /api/filter\n{"query": "${query}"}`);
+            }
+        }
+
+        function addChip(text) {
+            chips.push({ id: Date.now(), text: text });
+            renderChips();
+        }
+
+        function removeChip(id) {
+            chips = chips.filter(chip => chip.id !== id);
+            renderChips();
+        }
+
+        function renderChips() {
+            queryChips.innerHTML = chips.map(chip => `
+                <div class="query-chip">
+                    <span>${chip.text}</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary ms-1" onclick="removeChip(${chip.id})">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function toggleHelp() {
+            const helpPanel = document.getElementById('helpPanel');
+            const collapse = new bootstrap.Collapse(helpPanel);
+            collapse.toggle();
+        }
+
+        // Initialize
+        showValidation('Enter a search query to get started', 'info');
+    </script>
+</body>
+</html>
