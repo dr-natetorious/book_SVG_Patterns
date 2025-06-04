@@ -14,7 +14,7 @@ import json
 import uuid
 import structlog
 
-from .models import *
+from models import *
 
 # Configure structured logging
 logger = structlog.get_logger()
@@ -38,7 +38,7 @@ app.add_middleware(
 )
 
 # Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory="./static"), name="static")
 
 # Setup Jinja2 templates
 templates = Jinja2Templates(directory="templates")

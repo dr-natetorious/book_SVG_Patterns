@@ -1,0 +1,13 @@
+{
+    "configurations": [
+        {
+            "name": "Python Debugger: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/dashboard/app.py",
+            "console": "integratedTerminal",
+            "jinja": true,
+            "cwd": "${workspaceFolder}/dashboard"
+        }
+    ]
+}

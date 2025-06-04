@@ -1,4 +1,5 @@
 # Pydantic Models for API
+from pydantic import BaseModel, Field
 from typing import AsyncIterator, Dict, Set, List, Optional, Literal
 from dataclasses import dataclass, asdict
 from datetime import datetime
