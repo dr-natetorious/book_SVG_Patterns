@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
+from contextlib import asynccontextmanager
 from pydantic import BaseModel, Field
 from typing import AsyncIterator, Dict, Set, List, Optional, Literal
 from dataclasses import dataclass, asdict
@@ -18,31 +19,6 @@ from models import *
 
 # Configure structured logging
 logger = structlog.get_logger()
-
-# Initialize FastAPI with metadata
-app = FastAPI(
-    title="Release Workflow Dashboard API",
-    description="Multi-client SSE streaming API for release workflow management",
-    version="1.0.0",
-    docs_url="/docs",  # Enable OpenAPI docs
-    redoc_url="/redoc"  # Enable ReDoc
-)
-
-# Add CORS middleware for browser compatibility
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Internal demo - open CORS
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Mount static files
-app.mount("/static", StaticFiles(directory="./static"), name="static")
-
-# Setup Jinja2 templates
-templates = Jinja2Templates(directory="templates")
-
 
 # Global client tracking
 @dataclass
@@ -137,7 +113,7 @@ async def add_client(client_id: str, request: Request) -> asyncio.Queue:
     # Send initial data to new client
     await send_to_client(client_id, {
         "type": "initial_data",
-        "changes": [change.dict() for change in mock_changes.values()],
+        "changes": [change.model_dump() for change in mock_changes.values()],
         "timestamp": datetime.now().isoformat()
     })
     
@@ -235,7 +211,7 @@ async def periodic_updates():
                         # Send update to all clients
                         await broadcast_message({
                             "type": "change_update",
-                            "change": change.dict(),
+                            "change": change.model_dump(),
                             "timestamp": datetime.now().isoformat()
                         })
             
@@ -251,24 +227,48 @@ async def periodic_updates():
         counter += 1
         await asyncio.sleep(10)  # Update every 10 seconds
 
-# Lifespan management
-@asyncio.coroutine
+# Fixed lifespan management using asynccontextmanager
+@asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting Release Dashboard API")
     update_task = asyncio.create_task(periodic_updates())
     
-    yield
-    
-    # Shutdown
-    logger.info("Shutting down Release Dashboard API")
-    update_task.cancel()
     try:
-        await update_task
-    except asyncio.CancelledError:
-        pass
+        yield
+    finally:
+        # Shutdown
+        logger.info("Shutting down Release Dashboard API")
+        update_task.cancel()
+        try:
+            await update_task
+        except asyncio.CancelledError:
+            pass
 
-app.router.lifespan_context = lifespan
+# Initialize FastAPI with metadata and lifespan
+app = FastAPI(
+    title="Release Workflow Dashboard API",
+    description="Multi-client SSE streaming API for release workflow management",
+    version="1.0.0",
+    docs_url="/docs",  # Enable OpenAPI docs
+    redoc_url="/redoc",  # Enable ReDoc
+    lifespan=lifespan  # Properly set lifespan
+)
+
+# Add CORS middleware for browser compatibility
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Internal demo - open CORS
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="./static"), name="static")
+
+# Setup Jinja2 templates
+templates = Jinja2Templates(directory="templates")
 
 # API Routes
 
@@ -276,6 +276,12 @@ app.router.lifespan_context = lifespan
 async def root(request: Request):
     """Enhanced HTML client to test multi-client SSE"""
     return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/example", response_class=HTMLResponse, summary="Test SSE Client")
+async def example(request: Request):
+    """Enhanced HTML client to test multi-client SSE"""
+    return templates.TemplateResponse("example.html", {"request": request})
+
 
 @app.get("/dashboard", response_class=HTMLResponse, summary="Release Dashboard")
 @app.get("/dashboard.html", response_class=HTMLResponse, summary="Release Dashboard")
@@ -368,7 +374,7 @@ async def update_change(change_id: str, update_data: Dict):
     # Broadcast update
     await broadcast_message({
         "type": "change_update",
-        "change": change.dict(),
+        "change": change.model_dump(),
         "timestamp": datetime.now().isoformat()
     })
     
