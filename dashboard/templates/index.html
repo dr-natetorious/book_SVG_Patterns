@@ -7,101 +7,239 @@
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
+            background-color: #f5f5f5;
         }
 
         .container {
             display: flex;
             gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
         }
 
         .panel {
             flex: 1;
             border: 1px solid #ccc;
             padding: 15px;
-            border-radius: 5px;
+            border-radius: 8px;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .panel h3 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 2px solid #007acc;
+            padding-bottom: 8px;
         }
 
         .event {
             margin: 5px 0;
             padding: 8px;
-            background: #f0f0f0;
-            border-radius: 3px;
+            border-radius: 4px;
             font-size: 12px;
+            font-family: 'Courier New', monospace;
+            border-left: 4px solid #ddd;
         }
 
         .broadcast {
             background: #e6f3ff;
+            border-left-color: #007acc;
         }
 
         .direct {
             background: #ffe6e6;
+            border-left-color: #dc3545;
         }
 
         .system {
             background: #e6ffe6;
+            border-left-color: #28a745;
         }
 
         .heartbeat {
             background: #f9f9f9;
             color: #999;
+            border-left-color: #6c757d;
+        }
+
+        .initial_data {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+        }
+
+        .change_update {
+            background: #d1ecf1;
+            border-left-color: #17a2b8;
         }
 
         button {
             margin: 5px;
             padding: 8px 12px;
+            border: 1px solid #007acc;
+            background: #007acc;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background: #005c99;
+        }
+
+        button:disabled {
+            background: #6c757d;
+            border-color: #6c757d;
+            cursor: not-allowed;
         }
 
         input,
         textarea {
             margin: 5px;
-            padding: 5px;
+            padding: 8px;
             width: 200px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+
+        input:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #007acc;
+            box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.25);
         }
 
         #clientId {
             font-weight: bold;
             color: #007acc;
+            font-family: 'Courier New', monospace;
         }
 
         .stats {
-            background: #f5f5f5;
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+        }
+
+        .stats strong {
+            color: #495057;
+        }
+
+        .status-connected {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .status-disconnected {
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .status-connecting {
+            color: #ffc107;
+            font-weight: bold;
+        }
+
+        #events {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
             padding: 10px;
-            margin: 10px 0;
-            border-radius: 3px;
+            background: #fafafa;
+        }
+
+        .control-group {
+            margin: 15px 0;
+            padding: 10px;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            background: #f8f9fa;
+        }
+
+        .control-group h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+            font-size: 14px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .message-count {
+            background: #007acc;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .connecting {
+            animation: pulse 1.5s infinite;
         }
     </style>
 </head>
 
 <body>
-    <h1>Multi-Client SSE Test</h1>
+    <h1>Multi-Client SSE Test Dashboard</h1>
     <div class="stats">
         <strong>Client ID:</strong> <span id="clientId">Not connected</span><br>
-        <strong>Status:</strong> <span id="status">Disconnected</span><br>
-        <strong>Messages Received:</strong> <span id="messageCount">0</span>
+        <strong>Status:</strong> <span id="status" class="status-disconnected">Disconnected</span><br>
+        <strong>Messages Received:</strong> <span id="messageCount">0</span> <span class="message-count" id="eventCount" style="display: none;">0</span><br>
+        <strong>Connection Time:</strong> <span id="connectionTime">-</span>
     </div>
 
     <div class="container">
         <div class="panel">
             <h3>Connection Control</h3>
-            <button onclick="connect()">Connect</button>
-            <button onclick="disconnect()">Disconnect</button>
-            <button onclick="clearEvents()">Clear Events</button>
+            <div class="control-group">
+                <button id="connectBtn" onclick="connect()">Connect</button>
+                <button id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+                <button onclick="clearEvents()">Clear Events</button>
+            </div>
 
-            <h3>Broadcast Message</h3>
-            <input type="text" id="broadcastMsg" placeholder="Message to all clients">
-            <button onclick="broadcastMessage()">Broadcast</button>
+            <div class="control-group">
+                <h4>Broadcast Message</h4>
+                <div class="input-group">
+                    <input type="text" id="broadcastMsg" placeholder="Message to all clients" maxlength="200">
+                    <button onclick="broadcastMessage()">Broadcast</button>
+                </div>
+            </div>
 
-            <h3>Direct Message</h3>
-            <input type="text" id="targetClient" placeholder="Target Client ID">
-            <input type="text" id="directMsg" placeholder="Direct message">
-            <button onclick="sendDirectMessage()">Send Direct</button>
+            <div class="control-group">
+                <h4>Direct Message</h4>
+                <div class="input-group">
+                    <input type="text" id="targetClient" placeholder="Target Client ID" maxlength="50">
+                    <input type="text" id="directMsg" placeholder="Direct message" maxlength="200">
+                    <button onclick="sendDirectMessage()">Send Direct</button>
+                </div>
+            </div>
 
-            <button onclick="getClients()">Get Active Clients</button>
+            <div class="control-group">
+                <h4>Server Info</h4>
+                <button onclick="getClients()">Get Active Clients</button>
+                <button onclick="getServerHealth()">Health Check</button>
+            </div>
         </div>
 
         <div class="panel">
-            <h3>Events <span id="eventCount"></span></h3>
-            <div id="events" style="height: 400px; overflow-y: auto;"></div>
+            <h3>Events <span class="message-count" id="eventCountDisplay">0</span></h3>
+            <div id="events"></div>
         </div>
     </div>
 
@@ -109,36 +247,96 @@
         let eventSource = null;
         let clientId = null;
         let messageCount = 0;
+        let connectionStartTime = null;
+
+        function updateStatus(status, className = '') {
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = status;
+            statusElement.className = className;
+        }
+
+        function updateUI() {
+            const isConnected = eventSource && eventSource.readyState === EventSource.OPEN;
+            document.getElementById('connectBtn').disabled = isConnected;
+            document.getElementById('disconnectBtn').disabled = !isConnected;
+        }
 
         function connect() {
             if (eventSource) {
                 eventSource.close();
             }
 
+            updateStatus('Connecting...', 'status-connecting connecting');
+            connectionStartTime = new Date();
+
             eventSource = new EventSource('/stream');
 
             eventSource.onopen = function (event) {
-                document.getElementById('status').textContent = 'Connected';
-                // Extract client ID from response headers when available
+                updateStatus('Connected', 'status-connected');
+                updateUI();
+                
+                // Extract client ID from response headers if available
+                // Note: In most browsers, we can't access custom headers from EventSource
+                // The client ID will be set from the first server message instead
+                
+                addEvent({
+                    type: 'connection',
+                    message: 'SSE connection established',
+                    timestamp: new Date().toISOString()
+                }, 'system');
+                
+                updateConnectionTime();
             };
 
             eventSource.onmessage = function (event) {
-                const data = JSON.parse(event.data);
-                messageCount++;
-                document.getElementById('messageCount').textContent = messageCount;
+                try {
+                    const data = JSON.parse(event.data);
+                    messageCount++;
+                    document.getElementById('messageCount').textContent = messageCount;
+                    document.getElementById('eventCountDisplay').textContent = messageCount;
 
-                // Set client ID from the first message if not set
-                if (!clientId && data.type === 'client_connected') {
-                    clientId = event.target.url.split('?')[0]; // This is a workaround
+                    // Set client ID from the first message if not already set
+                    if (!clientId && (data.type === 'initial_data' || data.client_id)) {
+                        // Try to extract client ID from various possible sources
+                        if (data.client_id) {
+                            clientId = data.client_id;
+                        } else if (data.type === 'initial_data') {
+                            // Generate a display ID based on connection time for identification
+                            clientId = `Client-${new Date().getTime().toString().slice(-6)}`;
+                        }
+                        
+                        if (clientId) {
+                            document.getElementById('clientId').textContent = clientId;
+                        }
+                    }
+
+                    addEvent(data);
+                    updateConnectionTime();
+                } catch (error) {
+                    console.error('Error parsing SSE message:', error, event.data);
+                    addEvent({
+                        type: 'error',
+                        message: `Parse error: ${error.message}`,
+                        raw_data: event.data,
+                        timestamp: new Date().toISOString()
+                    }, 'system');
                 }
-
-                addEvent(data);
             };
 
             eventSource.onerror = function (event) {
-                document.getElementById('status').textContent = 'Error/Disconnected';
                 console.error('SSE error:', event);
+                updateStatus('Error/Disconnected', 'status-disconnected');
+                updateUI();
+                
+                addEvent({
+                    type: 'error',
+                    message: 'Connection error occurred',
+                    readyState: eventSource ? eventSource.readyState : 'unknown',
+                    timestamp: new Date().toISOString()
+                }, 'system');
             };
+
+            updateUI();
         }
 
         function disconnect() {
@@ -146,52 +344,124 @@
                 eventSource.close();
                 eventSource = null;
             }
-            document.getElementById('status').textContent = 'Disconnected';
+            updateStatus('Disconnected', 'status-disconnected');
+            clientId = null;
+            document.getElementById('clientId').textContent = 'Not connected';
+            updateUI();
+            
+            addEvent({
+                type: 'disconnection',
+                message: 'Manually disconnected from server',
+                timestamp: new Date().toISOString()
+            }, 'system');
         }
 
-        function addEvent(data) {
+        function updateConnectionTime() {
+            if (connectionStartTime) {
+                const now = new Date();
+                const diff = Math.floor((now - connectionStartTime) / 1000);
+                const minutes = Math.floor(diff / 60);
+                const seconds = diff % 60;
+                document.getElementById('connectionTime').textContent = 
+                    `${minutes}m ${seconds}s`;
+            }
+        }
+
+        function addEvent(data, forceType = null) {
             const eventsDiv = document.getElementById('events');
             const eventDiv = document.createElement('div');
 
             let className = 'event';
             let prefix = '';
+            let displayData = data;
 
-            switch (data.type) {
+            const eventType = forceType || data.type || 'unknown';
+
+            switch (eventType) {
                 case 'broadcast':
                     className += ' broadcast';
                     prefix = '[BROADCAST] ';
+                    displayData = { message: data.message, timestamp: data.timestamp };
                     break;
                 case 'direct_message':
                     className += ' direct';
                     prefix = '[DIRECT] ';
+                    displayData = { message: data.message, timestamp: data.timestamp };
                     break;
                 case 'client_connected':
                 case 'client_disconnected':
-                case 'periodic_update':
+                case 'connection':
+                case 'disconnection':
+                case 'error':
                     className += ' system';
                     prefix = '[SYSTEM] ';
+                    break;
+                case 'initial_data':
+                    className += ' initial_data';
+                    prefix = '[INITIAL] ';
+                    displayData = { 
+                        type: data.type, 
+                        changes: `${data.changes?.length || 0} changes loaded`,
+                        timestamp: data.timestamp 
+                    };
+                    break;
+                case 'change_update':
+                    className += ' change_update';
+                    prefix = '[UPDATE] ';
+                    displayData = { 
+                        change_id: data.change?.id,
+                        status: data.change?.status,
+                        progress: data.change?.progress,
+                        timestamp: data.timestamp 
+                    };
+                    break;
+                case 'periodic_update':
+                    className += ' system';
+                    prefix = '[PERIODIC] ';
+                    displayData = { 
+                        counter: data.counter,
+                        active_clients: data.active_clients,
+                        total_changes: data.total_changes,
+                        timestamp: data.timestamp 
+                    };
                     break;
                 case 'heartbeat':
                     className += ' heartbeat';
                     prefix = '[HEARTBEAT] ';
+                    displayData = { timestamp: data.timestamp };
                     break;
+                default:
+                    className += ' system';
+                    prefix = '[UNKNOWN] ';
             }
 
+            const timestamp = new Date().toLocaleTimeString();
             eventDiv.className = className;
-            eventDiv.textContent = new Date().toLocaleTimeString() + ' - ' + prefix + JSON.stringify(data);
+            eventDiv.innerHTML = `
+                <strong>${timestamp}</strong> - ${prefix}<br>
+                <pre style="margin: 4px 0; white-space: pre-wrap; font-size: 11px;">${JSON.stringify(displayData, null, 2)}</pre>
+            `;
+            
             eventsDiv.appendChild(eventDiv);
             eventsDiv.scrollTop = eventsDiv.scrollHeight;
+
+            // Update event count
+            document.getElementById('eventCountDisplay').textContent = eventsDiv.children.length;
         }
 
         function clearEvents() {
             document.getElementById('events').innerHTML = '';
             messageCount = 0;
             document.getElementById('messageCount').textContent = '0';
+            document.getElementById('eventCountDisplay').textContent = '0';
         }
 
         async function broadcastMessage() {
-            const message = document.getElementById('broadcastMsg').value;
-            if (!message) return;
+            const message = document.getElementById('broadcastMsg').value.trim();
+            if (!message) {
+                alert('Please enter a message to broadcast');
+                return;
+            }
 
             try {
                 const response = await fetch('/broadcast', {
@@ -199,48 +469,155 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: message })
                 });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
                 const result = await response.json();
                 console.log('Broadcast result:', result);
                 document.getElementById('broadcastMsg').value = '';
+                
+                addEvent({
+                    type: 'api_response',
+                    message: `Broadcast sent to ${result.client_count} clients`,
+                    timestamp: new Date().toISOString()
+                }, 'system');
             } catch (error) {
                 console.error('Broadcast error:', error);
+                addEvent({
+                    type: 'api_error',
+                    message: `Broadcast failed: ${error.message}`,
+                    timestamp: new Date().toISOString()
+                }, 'system');
             }
         }
 
         async function sendDirectMessage() {
-            const targetClient = document.getElementById('targetClient').value;
-            const message = document.getElementById('directMsg').value;
-            if (!targetClient || !message) return;
+            const targetClient = document.getElementById('targetClient').value.trim();
+            const message = document.getElementById('directMsg').value.trim();
+            
+            if (!targetClient || !message) {
+                alert('Please enter both target client ID and message');
+                return;
+            }
 
             try {
-                const response = await fetch(`/send/${targetClient}`, {
+                const response = await fetch(`/send/${encodeURIComponent(targetClient)}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: message })
                 });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
                 const result = await response.json();
                 console.log('Direct message result:', result);
                 document.getElementById('directMsg').value = '';
+                
+                addEvent({
+                    type: 'api_response',
+                    message: `Direct message sent to ${targetClient}`,
+                    timestamp: new Date().toISOString()
+                }, 'system');
             } catch (error) {
                 console.error('Direct message error:', error);
+                addEvent({
+                    type: 'api_error',
+                    message: `Direct message failed: ${error.message}`,
+                    timestamp: new Date().toISOString()
+                }, 'system');
             }
         }
 
         async function getClients() {
             try {
                 const response = await fetch('/clients');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
                 const data = await response.json();
                 console.log('Active clients:', data);
-                alert(`Active clients: ${data.total_clients}\\n${JSON.stringify(data.clients, null, 2)}`);
+                
+                const clientsInfo = data.clients.map(client => 
+                    `ID: ${client.id.slice(0, 8)}...\nConnected: ${new Date(client.connected_at).toLocaleString()}\nUser Agent: ${client.user_agent.slice(0, 50)}...`
+                ).join('\n\n');
+                
+                alert(`Active clients: ${data.total_clients}\n\n${clientsInfo}`);
+                
+                addEvent({
+                    type: 'api_response',
+                    message: `Retrieved info for ${data.total_clients} active clients`,
+                    clients: data.clients.length,
+                    timestamp: new Date().toISOString()
+                }, 'system');
             } catch (error) {
                 console.error('Get clients error:', error);
+                addEvent({
+                    type: 'api_error',
+                    message: `Failed to get clients: ${error.message}`,
+                    timestamp: new Date().toISOString()
+                }, 'system');
+            }
+        }
+
+        async function getServerHealth() {
+            try {
+                const response = await fetch('/health');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('Server health:', data);
+                
+                addEvent({
+                    type: 'health_check',
+                    status: data.status,
+                    active_clients: data.active_clients,
+                    version: data.version,
+                    timestamp: data.timestamp
+                }, 'system');
+            } catch (error) {
+                console.error('Health check error:', error);
+                addEvent({
+                    type: 'api_error',
+                    message: `Health check failed: ${error.message}`,
+                    timestamp: new Date().toISOString()
+                }, 'system');
             }
         }
 
         // Auto-connect on page load
         window.onload = function () {
             connect();
+            
+            // Update connection time every second
+            setInterval(updateConnectionTime, 1000);
         };
+
+        // Cleanup on page unload
+        window.onbeforeunload = function() {
+            if (eventSource) {
+                eventSource.close();
+            }
+        };
+
+        // Handle Enter key in input fields
+        document.getElementById('broadcastMsg').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                broadcastMessage();
+            }
+        });
+
+        document.getElementById('directMsg').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendDirectMessage();
+            }
+        });
     </script>
 </body>
 </html>
